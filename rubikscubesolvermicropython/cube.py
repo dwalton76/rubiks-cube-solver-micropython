@@ -30,16 +30,9 @@ cube_layout = """
           51 52 53
 """
 
-#-----------------------------------------------------------------------------
-# Face indices
-#-----------------------------------------------------------------------------
-U = 0
-F = 1
-D = 2
-B = 3
-R = 4
-L = 5
-
+#-----------------------
+# Face indices to string
+#-----------------------
 side2str = {
     0 : "U",
     1 : "F",
@@ -48,6 +41,7 @@ side2str = {
     4 : "R",
     5 : "L",
 }
+
 
 NPIECE = 3
 MV_MAX = 100
@@ -297,13 +291,11 @@ def rotate_333(cube, step):
     return [cube[x] for x in swaps_333[step]]
 
 
-def rotate(cube, f, r):
+def rotate(cube, side, r):
     r &= 3
 
-    # f is the face
     # r is 1/4 forward, 1/4 backward or 1/2 turn
-    # f will be an int in 0..5, convert that to side name (U, L, etc)
-    step = side2str[f]
+    step = side
 
     if r == 1:
         pass
@@ -338,7 +330,7 @@ def solve_phase(cube, mtb, mtd):
             mv = 0
             f0 = int(b / 3)
             r0 = RFIX(b - (f0 * 3) + 1)
-            cube = rotate(cube, f0, r0)
+            cube = rotate(cube, side2str[f0], r0)
 
             mv += 1
             while mv < mvm:
@@ -360,7 +352,7 @@ def solve_phase(cube, mtb, mtd):
                     f1 += 1
 
                 f0 = f1
-                cube = rotate(cube, f0, r0)
+                cube = rotate(cube, side2str[f0], r0)
 
                 mv += 1
     return cube
@@ -371,56 +363,56 @@ def solve_one(cube):
 
     # phase 1 - solve edges DF DR
     index_init()
-    index_edge(cube, D, F)
-    index_edge(cube, D, R)
+    index_edge(cube, "D", "F")
+    index_edge(cube, "D", "R")
     cube = solve_phase(cube, mtb0, mtd0)
 
     # phase 2 - solve corner DFR and edge FR
     index_init()
-    index_corner(cube, D, F, R)
-    index_edge(cube, F, R)
+    index_corner(cube, "D", "F", "R")
+    index_edge(cube, "F", "R")
     cube = solve_phase(cube, mtb1, mtd1)
 
     # phase 3 - solve edge DB
     index_init()
-    index_edge(cube, D, B)
+    index_edge(cube, "D", "B")
     cube = solve_phase(cube, mtb2, mtd2)
 
     # phase 4 - solve corner DRB and edge RB
     index_init()
-    index_corner(cube, D, R, B)
-    index_edge(cube, R, B)
+    index_corner(cube, "D", "R", "B")
+    index_edge(cube, "R", "B")
     cube = solve_phase(cube, mtb3, mtd3)
 
     # phase 5 - solve edge DL
     index_init()
-    index_edge(cube, D, L)
+    index_edge(cube, "D", "L")
     cube = solve_phase(cube, mtb4, mtd4)
 
     # phase 6 - solve corner DBL and edge BL
     index_init()
-    index_corner(cube, D, B, L)
-    index_edge(cube, B, L)
+    index_corner(cube, "D", "B", "L")
+    index_edge(cube, "B", "L")
     cube = solve_phase(cube, mtb5, mtd5)
 
     # phase 7 - solve corner DLF and edge LF
     index_init()
-    index_corner(cube, D, L, F)
-    index_edge(cube, L, F)
+    index_corner(cube, "D", "L", "F")
+    index_edge(cube, "L", "F")
     cube = solve_phase(cube, mtb6, mtd6)
 
     # phase 8 - solve corners URF, UFL, and ULB
     index_init()
-    index_corner(cube, U, R, F)
-    index_corner(cube, U, F, L)
-    index_corner(cube, U, L, B)
+    index_corner(cube, "U", "R", "F")
+    index_corner(cube, "U", "F", "L")
+    index_corner(cube, "U", "L", "B")
     cube = solve_phase(cube, mtb7, mtd7)
 
     # phase 9 - solve edges UR, UF and UL
     index_init()
-    index_edge(cube, U, R)
-    index_edge(cube, U, F)
-    index_edge(cube, U, L)
+    index_edge(cube, "U", "R")
+    index_edge(cube, "U", "F")
+    index_edge(cube, "U", "L")
     index_last()
     cube = solve_phase(cube, mtb8, mtd8)
 
@@ -431,42 +423,26 @@ class RubiksCube333(object):
 
     def __init__(self, state, order):
         self.solution = []
-        foo = []
+        self.state = []
         state = list(state)
         squares_per_side = 9
 
         if order == 'URFDLB':
-            foo.extend(state[0:squares_per_side])                            # U
-            foo.extend(state[(squares_per_side * 4):(squares_per_side * 5)]) # L
-            foo.extend(state[(squares_per_side * 2):(squares_per_side * 3)]) # F
-            foo.extend(state[(squares_per_side * 1):(squares_per_side * 2)]) # R
-            foo.extend(state[(squares_per_side * 5):(squares_per_side * 6)]) # B
-            foo.extend(state[(squares_per_side * 3):(squares_per_side * 4)]) # D
+            self.state.extend(state[0:squares_per_side])                            # U
+            self.state.extend(state[(squares_per_side * 4):(squares_per_side * 5)]) # L
+            self.state.extend(state[(squares_per_side * 2):(squares_per_side * 3)]) # F
+            self.state.extend(state[(squares_per_side * 1):(squares_per_side * 2)]) # R
+            self.state.extend(state[(squares_per_side * 5):(squares_per_side * 6)]) # B
+            self.state.extend(state[(squares_per_side * 3):(squares_per_side * 4)]) # D
         elif order == 'ULFRBD':
-            foo.extend(state[0:squares_per_side])                            # U
-            foo.extend(state[(squares_per_side * 1):(squares_per_side * 2)]) # L
-            foo.extend(state[(squares_per_side * 2):(squares_per_side * 3)]) # F
-            foo.extend(state[(squares_per_side * 3):(squares_per_side * 4)]) # R
-            foo.extend(state[(squares_per_side * 4):(squares_per_side * 5)]) # B
-            foo.extend(state[(squares_per_side * 5):(squares_per_side * 6)]) # D
+            self.state.extend(state[0:squares_per_side])                            # U
+            self.state.extend(state[(squares_per_side * 1):(squares_per_side * 2)]) # L
+            self.state.extend(state[(squares_per_side * 2):(squares_per_side * 3)]) # F
+            self.state.extend(state[(squares_per_side * 3):(squares_per_side * 4)]) # R
+            self.state.extend(state[(squares_per_side * 4):(squares_per_side * 5)]) # B
+            self.state.extend(state[(squares_per_side * 5):(squares_per_side * 6)]) # D
         else:
             raise Exception("Add support for order %s" % order)
-
-        self.state = []
-
-        for x in foo:
-            if x == "U":
-                self.state.append(U)
-            elif x == "L":
-                self.state.append(L)
-            elif x == "F":
-                self.state.append(F)
-            elif x == "R":
-                self.state.append(R)
-            elif x == "B":
-                self.state.append(B)
-            elif x == "D":
-                self.state.append(D)
 
     def solve(self):
         solve_one(self.state)
