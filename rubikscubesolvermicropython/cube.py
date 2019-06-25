@@ -97,6 +97,36 @@ def cube2str(cube):
     )
 
 
+def cube2strcolor(cube):
+    cube_string = cube2str(cube)
+    cube_string = cube_string.replace("U", "\033[97mU\033[0m") # White
+    cube_string = cube_string.replace("L", "\033[90mL\033[0m") # Orange
+    cube_string = cube_string.replace("F", "\033[92mF\033[0m") # Green
+    cube_string = cube_string.replace("R", "\033[91mR\033[0m") # Red
+    cube_string = cube_string.replace("B", "\033[94mB\033[0m") # Blue
+    cube_string = cube_string.replace("D", "\033[93mD\033[0m") # Yellow
+    return cube_string
+
+
+
+def get_alg_cubing_net_url(solution):
+    """
+    Return an alg.cubing.net URL for 'solution'
+    """
+    url = "https://alg.cubing.net/?puzzle=3x3x3&alg="
+
+    for x in solution:
+        if x.startswith('COMMENT'):
+            url += r'''%2F%2F''' + x.replace("COMMENT", "") + "%0A%0A"
+        else:
+            url += x + "_"
+
+    url += "&type=alg"
+    url += "&title=SpikeCuber"
+    url = url.replace("'", "-")
+    url = url.replace(" ", "_")
+    return url
+
 
 def index_init():
     global idx_nc, idx_ne, idx
@@ -119,45 +149,14 @@ def find_corner(cube, f0, f1, f2):
     Return a number from 0-23 that indicates where corner f0/f1/f2 is located
     """
     for (index, (corner0, corner1, corner2)) in enumerate((
-            # UBR (2, 36, 29)
-            (29, 2, 36),
-            (36, 29, 2),
-            (2, 36, 29),
-
-            # ULB (0, 9, 38)
-            (38, 0, 9),
-            (9, 38, 0),
-            (0, 9, 38),
-
-            # UFL (6, 18, 11)
-            (11, 6, 18),
-            (18, 11, 6),
-            (6, 18, 11),
-
-            # URF (8, 27, 20)
-            (20, 8, 27),
-            (27, 20, 8),
-            (8, 27, 20),
-
-            # DLF (45, 17, 24)
-            (24, 45, 17),
-            (17, 24, 45),
-            (45, 17, 24),
-
-            # DBL (51, 44, 15)
-            (15, 51, 44),
-            (44, 15, 51),
-            (51, 44, 15),
-
-            # DRB (53, 35, 42)
-            (42, 53, 35),
-            (35, 42, 53),
-            (53, 35, 42),
-
-            # DFR (47, 26, 33)
-            (33, 47, 26),
-            (26, 33, 47),
-            (47, 26, 33),
+            (29, 2, 36), (36, 29, 2), (2, 36, 29), # UBR
+            (38, 0, 9), (9, 38, 0), (0, 9, 38), # ULB
+            (11, 6, 18), (18, 11, 6), (6, 18, 11), # UFL
+            (20, 8, 27), (27, 20, 8), (8, 27, 20), # URF
+            (24, 45, 17), (17, 24, 45), (45, 17, 24), # DLF
+            (15, 51, 44), (44, 15, 51), (51, 44, 15), # DBL
+            (42, 53, 35), (35, 42, 53), (53, 35, 42), # DRB
+            (33, 47, 26), (26, 33, 47), (47, 26, 33), # DFR
         )):
 
         if cube[corner0] == f0 and cube[corner1] == f1 and cube[corner2] == f2:
@@ -187,53 +186,18 @@ def find_edge(cube, f0, f1):
     Return a number from 0-23 that indicates where edge f0/f1 is located
     """
     for (index, (edge0, edge1)) in enumerate((
-            # UB
-            (37, 1),
-            (1, 37),
-
-            # UL
-            (10, 3),
-            (3, 10),
-
-            # UF
-            (19, 7),
-            (7, 19),
-
-            # UR
-            (28, 5),
-            (5, 28),
-
-            # LF
-            (21, 14),
-            (14, 21),
-
-            # BL
-            (12, 41),
-            (41, 12),
-
-            # DL
-            (16, 48),
-            (48, 16),
-
-            # RB
-            (39, 32),
-            (32, 39),
-
-            # DB
-            (43, 52),
-            (52, 43),
-
-            # FR
-            (30, 23),
-            (23, 30),
-
-            # DR
-            (34, 50),
-            (50, 34),
-
-            # DF
-            (25, 46),
-            (46, 25),
+            (37, 1), (1, 37), # UB
+            (10, 3), (3, 10), # UL
+            (19, 7), (7, 19), # UF
+            (28, 5), (5, 28), # UR
+            (21, 14), (14, 21), # LF
+            (12, 41), (41, 12), # BL
+            (16, 48), (48, 16), # DL
+            (39, 32), (32, 39), # RB
+            (43, 52), (52, 43), # DB
+            (30, 23), (23, 30), # FR
+            (34, 50), (50, 34), # DR
+            (25, 46), (46, 25), # DF
         )):
 
         if cube[edge0] == f0 and cube[edge1] == f1:
@@ -359,47 +323,71 @@ def solve_phase(cube, mtb, mtd):
 
 
 def solve_one(cube):
-    log.info("INIT CUBE:\n%s" % (cube2str(cube)))
+    global solution
+    log.info("INIT CUBE:\n%s" % (cube2strcolor(cube)))
+    solution_len = len(solution)
+    prev_solution_len = solution_len
 
     # phase 1 - solve edges DF DR
     index_init()
     index_edge(cube, "D", "F")
     index_edge(cube, "D", "R")
     cube = solve_phase(cube, mtb0, mtd0)
+    solution_len = len(solution)
+    solution.append("COMMENT phase 1: solve edges DF DR (%d steps)" % (solution_len - prev_solution_len))
+    prev_solution_len = solution_len
 
     # phase 2 - solve corner DFR and edge FR
     index_init()
     index_corner(cube, "D", "F", "R")
     index_edge(cube, "F", "R")
     cube = solve_phase(cube, mtb1, mtd1)
+    solution_len = len(solution)
+    solution.append("COMMENT phase 2: solve corner DFR and edge FR (%d steps)" % (solution_len - prev_solution_len))
+    prev_solution_len = solution_len
 
     # phase 3 - solve edge DB
     index_init()
     index_edge(cube, "D", "B")
     cube = solve_phase(cube, mtb2, mtd2)
+    solution_len = len(solution)
+    solution.append("COMMENT phase 3: solve edge DB (%d steps)" % (solution_len - prev_solution_len))
+    prev_solution_len = solution_len
 
     # phase 4 - solve corner DRB and edge RB
     index_init()
     index_corner(cube, "D", "R", "B")
     index_edge(cube, "R", "B")
     cube = solve_phase(cube, mtb3, mtd3)
+    solution_len = len(solution)
+    solution.append("COMMENT phase 4: solve corner DRB and edge RB (%d steps)" % (solution_len - prev_solution_len))
+    prev_solution_len = solution_len
 
     # phase 5 - solve edge DL
     index_init()
     index_edge(cube, "D", "L")
     cube = solve_phase(cube, mtb4, mtd4)
+    solution_len = len(solution)
+    solution.append("COMMENT phase 5: solve edge DL (%d steps)" % (solution_len - prev_solution_len))
+    prev_solution_len = solution_len
 
     # phase 6 - solve corner DBL and edge BL
     index_init()
     index_corner(cube, "D", "B", "L")
     index_edge(cube, "B", "L")
     cube = solve_phase(cube, mtb5, mtd5)
+    solution_len = len(solution)
+    solution.append("COMMENT phase 6: solve corner DBL and edge BL (%d steps)" % (solution_len - prev_solution_len))
+    prev_solution_len = solution_len
 
     # phase 7 - solve corner DLF and edge LF
     index_init()
     index_corner(cube, "D", "L", "F")
     index_edge(cube, "L", "F")
     cube = solve_phase(cube, mtb6, mtd6)
+    solution_len = len(solution)
+    solution.append("COMMENT phase 7: solve corner DLF and edge LF (%d steps)" % (solution_len - prev_solution_len))
+    prev_solution_len = solution_len
 
     # phase 8 - solve corners URF, UFL, and ULB
     index_init()
@@ -407,6 +395,9 @@ def solve_one(cube):
     index_corner(cube, "U", "F", "L")
     index_corner(cube, "U", "L", "B")
     cube = solve_phase(cube, mtb7, mtd7)
+    solution_len = len(solution)
+    solution.append("COMMENT phase 8: solve corners URF, UFL, and ULB (%d steps)" % (solution_len - prev_solution_len))
+    prev_solution_len = solution_len
 
     # phase 9 - solve edges UR, UF and UL
     index_init()
@@ -415,8 +406,15 @@ def solve_one(cube):
     index_edge(cube, "U", "L")
     index_last()
     cube = solve_phase(cube, mtb8, mtd8)
+    solution_len = len(solution)
+    solution.append("COMMENT phase 9: solve edges UR, UF and UL (%d steps)" % (solution_len - prev_solution_len))
+    prev_solution_len = solution_len
 
-    log.info("FINAL CUBE:\n%s" % (cube2str(cube)))
+    log.info("FINAL CUBE:\n%s" % (cube2strcolor(cube)))
+    log.info(get_alg_cubing_net_url(solution))
+
+    # Remove the comments from the solution
+    solution = [x for x in solution if not x.startswith("COMMENT")]
 
 
 class RubiksCube333(object):
