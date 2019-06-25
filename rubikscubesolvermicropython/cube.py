@@ -28,21 +28,6 @@ side2str = {
 }
 
 
-NPIECE = 3
-MV_MAX = 100
-idx_idx = [None] * NPIECE
-mv_f = [None] * MV_MAX
-mv_r = [None] * MV_MAX
-
-idx_nc = 0
-idx_ne = 0
-idx = 0
-mv_n = 0
-idx_ic = 24
-idx_ie = 24
-solution = []
-
-
 cube_layout = """
           00 01 02
           03 04 05
@@ -166,31 +151,6 @@ def get_alg_cubing_net_url(solution):
     return url
 
 
-def index_init():
-    """
-    Initialize indexes
-    """
-    global idx_nc, idx_ne, idx
-    idx_nc = 0
-    idx_ne = 0
-    idx = 0
-
-
-def index_last():
-    """
-    Initialize indexes for the last time
-    """
-    global idx
-    idx = ((idx>>2)<<1)|(idx&1);
-
-
-def RFIX(RR):
-    """
-    Normalise to range -1 to 2
-    """
-    return ((int(RR) + 1) & 3) - 1
-
-
 def find_corner(cube, f0, f1, f2):
     """
     Return a number from 0-23 that indicates where corner f0/f1/f2 is located
@@ -210,25 +170,6 @@ def find_corner(cube, f0, f1, f2):
             return index
 
     raise Exception("Could not find corner f0/f1/f2 %s/%s/%s in\n%s\n" % (f0, f1, f2, cube2str(cube)))
-
-
-def index_corner(cube, f0, f1, f2):
-    """
-    Set idx, idx_ic and idx_nc for a corner
-    """
-    global idx_ic
-    global idx_nc
-    global idx
-    ic = find_corner(cube, f0, f1, f2)
-
-    for i in range(idx_nc):
-        if ic > idx_idx[i]:
-            ic -= 3
-
-    idx = (idx * idx_ic) + ic
-    idx_idx[idx_nc] = ic
-    idx_nc += 1
-    idx_ic -= 3
 
 
 def find_edge(cube, f0, f1):
@@ -256,31 +197,18 @@ def find_edge(cube, f0, f1):
     raise Exception("Could not find edge f0/f1 %s/%s\n%s" % (f0, f1, cube2str(cube)))
 
 
-def index_edge(cube, f0, f1):
+def RFIX(RR):
     """
-    Set idx, idx_ie and idx_ne for an edge
+    Normalize to range -1 to 2
     """
-    global idx_ie
-    global idx_ne
-    global idx
-    ie = find_edge(cube, f0, f1)
-
-    for i in range(idx_ne):
-        if ie > idx_idx[i]:
-            ie -= 2
-
-    idx = (idx * idx_ie) + ie
-    idx_idx[idx_ne] = ie
-    idx_ne += 1
-    idx_ie -= 2
+    return ((int(RR) + 1) & 3) - 1
 
 
-def rotate(cube, side, r):
+def get_step_string(f, r):
     r &= 3
+    step = side2str[f]
 
     # r is 1/4 forward, 1/4 backward or 1/2 turn
-    step = side
-
     if r == 1:
         pass
     elif r == 2:
@@ -290,176 +218,223 @@ def rotate(cube, side, r):
     else:
         raise Exception("rotate r '%s' is invalid" % r)
 
-    solution.append(step)
-    cube = [cube[x] for x in swaps_333[step]]
-    return cube
+    return step
 
 
-def solve_phase(cube, mtb, mtd):
-    global idx
-    sz = len(mtd) / mtb
-    idx = sz - idx
-
-    log.info("solve_phase: mtb %s, len(mtd) %s, sz %s, idx %s" % (mtb, len(mtd), sz, idx))
-
-    if idx > 0:
-        i = int((idx - 1) * mtb)
-        b = mtd[i]
-        i += 1
-
-        if b != 0xFF:
-            mvm = mtb * 2 - 1
-            mv = 0
-            f0 = int(b / 3)
-            r0 = RFIX(b - (f0 * 3) + 1)
-            cube = rotate(cube, side2str[f0], r0)
-
-            mv += 1
-            while mv < mvm:
-                b >>= 4
-
-                if (mv & 1) != 0:
-                    b = mtd[i]
-                    i += 1
-
-                b0 = b & 0xF
-
-                if b0 == 0xF:
-                    break
-
-                f1 = int(b0 / 3)
-                r0 = RFIX(b0 - (f1 * 3) + 1)
-
-                if f1 >= f0:
-                    f1 += 1
-
-                f0 = f1
-                cube = rotate(cube, side2str[f0], r0)
-
-                mv += 1
-    return cube
-
-
-def solve_one(cube):
-    global solution
-    log.info("INIT CUBE:\n%s" % (cube2strcolor(cube)))
-    solution_len = len(solution)
-    prev_solution_len = solution_len
-
-    # phase 1 - solve edges DF DR
-    index_init()
-    index_edge(cube, "D", "F")
-    index_edge(cube, "D", "R")
-    cube = solve_phase(cube, mtb0, mtd0)
-    solution_len = len(solution)
-    solution.append("COMMENT phase 1: solve edges DF DR (%d steps)" % (solution_len - prev_solution_len))
-    prev_solution_len = solution_len
-
-    # phase 2 - solve corner DFR and edge FR
-    index_init()
-    index_corner(cube, "D", "F", "R")
-    index_edge(cube, "F", "R")
-    cube = solve_phase(cube, mtb1, mtd1)
-    solution_len = len(solution)
-    solution.append("COMMENT phase 2: solve corner DFR and edge FR (%d steps)" % (solution_len - prev_solution_len))
-    prev_solution_len = solution_len
-
-    # phase 3 - solve edge DB
-    index_init()
-    index_edge(cube, "D", "B")
-    cube = solve_phase(cube, mtb2, mtd2)
-    solution_len = len(solution)
-    solution.append("COMMENT phase 3: solve edge DB (%d steps)" % (solution_len - prev_solution_len))
-    prev_solution_len = solution_len
-
-    # phase 4 - solve corner DRB and edge RB
-    index_init()
-    index_corner(cube, "D", "R", "B")
-    index_edge(cube, "R", "B")
-    cube = solve_phase(cube, mtb3, mtd3)
-    solution_len = len(solution)
-    solution.append("COMMENT phase 4: solve corner DRB and edge RB (%d steps)" % (solution_len - prev_solution_len))
-    prev_solution_len = solution_len
-
-    # phase 5 - solve edge DL
-    index_init()
-    index_edge(cube, "D", "L")
-    cube = solve_phase(cube, mtb4, mtd4)
-    solution_len = len(solution)
-    solution.append("COMMENT phase 5: solve edge DL (%d steps)" % (solution_len - prev_solution_len))
-    prev_solution_len = solution_len
-
-    # phase 6 - solve corner DBL and edge BL
-    index_init()
-    index_corner(cube, "D", "B", "L")
-    index_edge(cube, "B", "L")
-    cube = solve_phase(cube, mtb5, mtd5)
-    solution_len = len(solution)
-    solution.append("COMMENT phase 6: solve corner DBL and edge BL (%d steps)" % (solution_len - prev_solution_len))
-    prev_solution_len = solution_len
-
-    # phase 7 - solve corner DLF and edge LF
-    index_init()
-    index_corner(cube, "D", "L", "F")
-    index_edge(cube, "L", "F")
-    cube = solve_phase(cube, mtb6, mtd6)
-    solution_len = len(solution)
-    solution.append("COMMENT phase 7: solve corner DLF and edge LF (%d steps)" % (solution_len - prev_solution_len))
-    prev_solution_len = solution_len
-
-    # phase 8 - solve corners URF, UFL, and ULB
-    index_init()
-    index_corner(cube, "U", "R", "F")
-    index_corner(cube, "U", "F", "L")
-    index_corner(cube, "U", "L", "B")
-    cube = solve_phase(cube, mtb7, mtd7)
-    solution_len = len(solution)
-    solution.append("COMMENT phase 8: solve corners URF, UFL, and ULB (%d steps)" % (solution_len - prev_solution_len))
-    prev_solution_len = solution_len
-
-    # phase 9 - solve edges UR, UF and UL
-    index_init()
-    index_edge(cube, "U", "R")
-    index_edge(cube, "U", "F")
-    index_edge(cube, "U", "L")
-    index_last()
-    cube = solve_phase(cube, mtb8, mtd8)
-    solution_len = len(solution)
-    solution.append("COMMENT phase 9: solve edges UR, UF and UL (%d steps)" % (solution_len - prev_solution_len))
-    prev_solution_len = solution_len
-
-    log.info("FINAL CUBE:\n%s" % (cube2strcolor(cube)))
-    log.info(get_alg_cubing_net_url(solution))
-
-    # Remove the comments from the solution
-    solution = [x for x in solution if not x.startswith("COMMENT")]
+def rotate(cube, step):
+    return [cube[x] for x in swaps_333[step]]
 
 
 class RubiksCube333(object):
 
     def __init__(self, state, order):
+        SQUARES_PER_SIDE = 9
         self.solution = []
         self.state = []
         state = list(state)
-        squares_per_side = 9
 
         if order == 'URFDLB':
-            self.state.extend(state[0:squares_per_side])                            # U
-            self.state.extend(state[(squares_per_side * 4):(squares_per_side * 5)]) # L
-            self.state.extend(state[(squares_per_side * 2):(squares_per_side * 3)]) # F
-            self.state.extend(state[(squares_per_side * 1):(squares_per_side * 2)]) # R
-            self.state.extend(state[(squares_per_side * 5):(squares_per_side * 6)]) # B
-            self.state.extend(state[(squares_per_side * 3):(squares_per_side * 4)]) # D
+            self.state.extend(state[0:SQUARES_PER_SIDE])                            # U
+            self.state.extend(state[(SQUARES_PER_SIDE * 4):(SQUARES_PER_SIDE * 5)]) # L
+            self.state.extend(state[(SQUARES_PER_SIDE * 2):(SQUARES_PER_SIDE * 3)]) # F
+            self.state.extend(state[(SQUARES_PER_SIDE * 1):(SQUARES_PER_SIDE * 2)]) # R
+            self.state.extend(state[(SQUARES_PER_SIDE * 5):(SQUARES_PER_SIDE * 6)]) # B
+            self.state.extend(state[(SQUARES_PER_SIDE * 3):(SQUARES_PER_SIDE * 4)]) # D
         elif order == 'ULFRBD':
-            self.state.extend(state[0:squares_per_side])                            # U
-            self.state.extend(state[(squares_per_side * 1):(squares_per_side * 2)]) # L
-            self.state.extend(state[(squares_per_side * 2):(squares_per_side * 3)]) # F
-            self.state.extend(state[(squares_per_side * 3):(squares_per_side * 4)]) # R
-            self.state.extend(state[(squares_per_side * 4):(squares_per_side * 5)]) # B
-            self.state.extend(state[(squares_per_side * 5):(squares_per_side * 6)]) # D
+            self.state.extend(state[0:SQUARES_PER_SIDE])                            # U
+            self.state.extend(state[(SQUARES_PER_SIDE * 1):(SQUARES_PER_SIDE * 2)]) # L
+            self.state.extend(state[(SQUARES_PER_SIDE * 2):(SQUARES_PER_SIDE * 3)]) # F
+            self.state.extend(state[(SQUARES_PER_SIDE * 3):(SQUARES_PER_SIDE * 4)]) # R
+            self.state.extend(state[(SQUARES_PER_SIDE * 4):(SQUARES_PER_SIDE * 5)]) # B
+            self.state.extend(state[(SQUARES_PER_SIDE * 5):(SQUARES_PER_SIDE * 6)]) # D
         else:
             raise Exception("Add support for order %s" % order)
 
+        NPIECE = 3
+        self.idx_idx = [None] * NPIECE
+        self.idx_nc = 0
+        self.idx_ne = 0
+        self.idx = 0
+        self.idx_ic = 24
+        self.idx_ie = 24
+
+    def index_init(self):
+        """
+        Initialize indexes
+        """
+        self.idx_nc = 0
+        self.idx_ne = 0
+        self.idx = 0
+
+    def index_last(self):
+        """
+        Initialize indexes for the last time
+        """
+        self.idx = ((self.idx >> 2) <<1 ) | (self.idx & 1);
+
+    def index_corner(self, f0, f1, f2):
+        """
+        Set idx, idx_ic and idx_nc for a corner
+        """
+        ic = find_corner(self.state, f0, f1, f2)
+
+        for i in range(self.idx_nc):
+            if ic > self.idx_idx[i]:
+                ic -= 3
+
+        self.idx = (self.idx * self.idx_ic) + ic
+        self.idx_idx[self.idx_nc] = ic
+        self.idx_nc += 1
+        self.idx_ic -= 3
+
+    def index_edge(self, f0, f1):
+        """
+        Set idx, idx_ie and idx_ne for an edge
+        """
+        ie = find_edge(self.state, f0, f1)
+
+        for i in range(self.idx_ne):
+            if ie > self.idx_idx[i]:
+                ie -= 2
+
+        self.idx = (self.idx * self.idx_ie) + ie
+        self.idx_idx[self.idx_ne] = ie
+        self.idx_ne += 1
+        self.idx_ie -= 2
+
+    def solve_phase(self, mtb, mtd):
+        sz = len(mtd) / mtb
+        self.idx = sz - self.idx
+
+        if self.idx > 0:
+            i = int((self.idx - 1) * mtb)
+            b = mtd[i]
+            i += 1
+
+            if b != 0xFF:
+                mvm = mtb * 2 - 1
+                mv = 0
+                f0 = int(b / 3)
+                r0 = RFIX(b - (f0 * 3) + 1)
+                step = get_step_string(f0, r0)
+                self.state = rotate(self.state, step)
+                self.solution.append(step)
+
+                mv += 1
+                while mv < mvm:
+                    b >>= 4
+
+                    if (mv & 1) != 0:
+                        b = mtd[i]
+                        i += 1
+
+                    b0 = b & 0xF
+
+                    if b0 == 0xF:
+                        break
+
+                    f1 = int(b0 / 3)
+                    r0 = RFIX(b0 - (f1 * 3) + 1)
+
+                    if f1 >= f0:
+                        f1 += 1
+
+                    f0 = f1
+                    step = get_step_string(f0, r0)
+                    self.state = rotate(self.state, step)
+                    self.solution.append(step)
+
+                    mv += 1
+
     def solve(self):
-        solve_one(self.state)
-        self.solution = solution
+        log.info("INIT CUBE:\n%s" % (cube2strcolor(self.state)))
+        solution_len = len(self.solution)
+        prev_solution_len = solution_len
+
+        # phase 1 - solve edges DF DR
+        self.index_init()
+        self.index_edge("D", "F")
+        self.index_edge("D", "R")
+        self.solve_phase(mtb0, mtd0)
+        solution_len = len(self.solution)
+        self.solution.append("COMMENT phase 1: solve edges DF DR (%d steps)" % (solution_len - prev_solution_len))
+        prev_solution_len = solution_len
+
+        # phase 2 - solve corner DFR and edge FR
+        self.index_init()
+        self.index_corner("D", "F", "R")
+        self.index_edge("F", "R")
+        self.solve_phase(mtb1, mtd1)
+        solution_len = len(self.solution)
+        self.solution.append("COMMENT phase 2: solve corner DFR and edge FR (%d steps)" % (solution_len - prev_solution_len))
+        prev_solution_len = solution_len
+
+        # phase 3 - solve edge DB
+        self.index_init()
+        self.index_edge("D", "B")
+        self.solve_phase(mtb2, mtd2)
+        solution_len = len(self.solution)
+        self.solution.append("COMMENT phase 3: solve edge DB (%d steps)" % (solution_len - prev_solution_len))
+        prev_solution_len = solution_len
+
+        # phase 4 - solve corner DRB and edge RB
+        self.index_init()
+        self.index_corner("D", "R", "B")
+        self.index_edge("R", "B")
+        self.solve_phase(mtb3, mtd3)
+        solution_len = len(self.solution)
+        self.solution.append("COMMENT phase 4: solve corner DRB and edge RB (%d steps)" % (solution_len - prev_solution_len))
+        prev_solution_len = solution_len
+
+        # phase 5 - solve edge DL
+        self.index_init()
+        self.index_edge("D", "L")
+        self.solve_phase(mtb4, mtd4)
+        solution_len = len(self.solution)
+        self.solution.append("COMMENT phase 5: solve edge DL (%d steps)" % (solution_len - prev_solution_len))
+        prev_solution_len = solution_len
+
+        # phase 6 - solve corner DBL and edge BL
+        self.index_init()
+        self.index_corner("D", "B", "L")
+        self.index_edge("B", "L")
+        self.solve_phase(mtb5, mtd5)
+        solution_len = len(self.solution)
+        self.solution.append("COMMENT phase 6: solve corner DBL and edge BL (%d steps)" % (solution_len - prev_solution_len))
+        prev_solution_len = solution_len
+
+        # phase 7 - solve corner DLF and edge LF
+        self.index_init()
+        self.index_corner("D", "L", "F")
+        self.index_edge("L", "F")
+        self.solve_phase(mtb6, mtd6)
+        solution_len = len(self.solution)
+        self.solution.append("COMMENT phase 7: solve corner DLF and edge LF (%d steps)" % (solution_len - prev_solution_len))
+        prev_solution_len = solution_len
+
+        # phase 8 - solve corners URF, UFL, and ULB
+        self.index_init()
+        self.index_corner("U", "R", "F")
+        self.index_corner("U", "F", "L")
+        self.index_corner("U", "L", "B")
+        self.solve_phase(mtb7, mtd7)
+        solution_len = len(self.solution)
+        self.solution.append("COMMENT phase 8: solve corners URF, UFL, and ULB (%d steps)" % (solution_len - prev_solution_len))
+        prev_solution_len = solution_len
+
+        # phase 9 - solve edges UR, UF and UL
+        self.index_init()
+        self.index_edge("U", "R")
+        self.index_edge("U", "F")
+        self.index_edge("U", "L")
+        self.index_last()
+        self.solve_phase(mtb8, mtd8)
+        solution_len = len(self.solution)
+        self.solution.append("COMMENT phase 9: solve edges UR, UF and UL (%d steps)" % (solution_len - prev_solution_len))
+        prev_solution_len = solution_len
+
+        log.info("FINAL CUBE:\n%s" % (cube2strcolor(self.state)))
+        log.info(get_alg_cubing_net_url(self.solution))
+
+        # Remove the comments from the solution
+        self.solution = [x for x in self.solution if not x.startswith("COMMENT")]
