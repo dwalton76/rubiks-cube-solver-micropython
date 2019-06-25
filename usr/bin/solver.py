@@ -19,4 +19,4 @@ else:
 
 cube = RubiksCube333(cube_state, 'URFDLB')
 cube.solve()
-print("SOLUTION: %s" % " ".join(cube.solution))
+print("SOLUTION (%d steps): %s" % (len(cube.solution), " ".join(cube.solution)))

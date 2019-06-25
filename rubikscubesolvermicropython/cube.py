@@ -16,6 +16,20 @@ from rubikscubesolvermicropython.movetables import (
 log = logging.getLogger(__name__)
 
 
+cube_layout = """
+          00 01 02
+          03 04 05
+          06 07 08
+
+09 10 11  18 19 20  27 28 29  36 37 38
+12 13 14  21 22 23  30 31 32  39 40 41
+15 16 17  24 25 26  33 34 35  42 43 44
+
+          45 46 47
+          48 49 50
+          51 52 53
+"""
+
 #-----------------------------------------------------------------------------
 # Face indices
 #-----------------------------------------------------------------------------
@@ -47,6 +61,7 @@ idx = 0
 mv_n = 0
 idx_ic = 24
 idx_ie = 24
+solution = []
 
 
 def cube2str(cube):
@@ -101,101 +116,53 @@ def index_last():
     idx = ((idx>>2)<<1)|(idx&1);
 
 
-def POS(FF, OO):
-    assert isinstance(FF, int), "FF is a %s, it must be an int" % type(FF)
-    assert isinstance(OO, int), "OO is a %s, it must be an int" % type(OO)
-    return (FF * 8) + OO
-
-
 def RFIX(RR):
     return ((int(RR) + 1) & 3) - 1  # Normalise to range -1 to 2
-
-
-'''
-def FIND_CORNER(cube, f0, f1, f2, F0, O0, F1, O1, F2, O2, I0, I1, I2, debug=False):
-    assert isinstance(f0, int), "f0 is a %s, it must be an int" % type(f0)
-    assert isinstance(f1, int), "f1 is a %s, it must be an int" % type(f1)
-    assert isinstance(f2, int), "f2 is a %s, it must be an int" % type(f2)
-
-    position = POS(F0, O0)
-    c0 = cube[position]
-
-    # dwalton this is hosed, it cannot find corner 2/1/4 on a solved cube
-    if c0 == f0:
-        if debug:
-            log.info("c0 == f0, f0/f1/f2 %s/%s/%s, F0 %s, O0 %s, position %s, c0 %s" % (f0, f1, f2, F0, O0, position, c0))
-
-        if cube[POS(F1, O1)] == f1 and cube[POS(F2, O2)] == f2:
-            return I2
-
-    elif c0 == f2:
-        if debug:
-            log.info("c0 == f2, f0/f1/f2 %s/%s/%s, F0 %s, O0 %s, position %s, c0 %s" % (f0, f1, f2, F0, O0, position, c0))
-
-        if cube[POS(F1, O1)] == f0 and cube[POS(F2, O2)] == f1:
-            return I1
-
-    elif c0 == f1:
-
-        if debug:
-            log.info("c0 == f1, f0/f1/f2 %s/%s/%s, F0 %s, O0 %s, position %s, c0 %s" % (f0, f1, f2, F0, O0, position, c0))
-            log.info("POS(F1, O1) (%s, %s) is %s, POS(F2, O2) (%s, %s) is %s" % (F1, O1, POS(F1, O1), F2, O2, POS(F2, O2)))
-            log.info("cube[POS(F1, O1)] %s, cube[POS(F2, O2)] %s" % (cube[POS(F1, O1)], cube[POS(F2, O2)]))
-
-        if cube[POS(F1, O1)] == f2 and cube[POS(F2, O2)] == f0:
-            return I0
-
-    return None
-'''
 
 
 def find_corner(cube, f0, f1, f2):
     """
     Return a number from 0-23 that indicates where corner f0/f1/f2 is located
     """
-    assert isinstance(f0, int), "f0 is a %s, it must be an int" % type(f0)
-    assert isinstance(f1, int), "f1 is a %s, it must be an int" % type(f1)
-    assert isinstance(f2, int), "f2 is a %s, it must be an int" % type(f2)
-
     for (index, (corner0, corner1, corner2)) in enumerate((
             # UBR (2, 36, 29)
-            (36, 29, 2),
             (29, 2, 36),
+            (36, 29, 2),
             (2, 36, 29),
 
             # ULB (0, 9, 38)
-            (9, 38, 0),
             (38, 0, 9),
+            (9, 38, 0),
             (0, 9, 38),
 
             # UFL (6, 18, 11)
-            (18, 11, 6),
             (11, 6, 18),
+            (18, 11, 6),
             (6, 18, 11),
 
             # URF (8, 27, 20)
-            (27, 20, 8),
             (20, 8, 27),
+            (27, 20, 8),
             (8, 27, 20),
 
             # DLF (45, 17, 24)
-            (17, 24, 45),
             (24, 45, 17),
+            (17, 24, 45),
             (45, 17, 24),
 
             # DBL (51, 44, 15)
-            (44, 15, 51),
             (15, 51, 44),
+            (44, 15, 51),
             (51, 44, 15),
 
             # DRB (53, 35, 42)
-            (35, 42, 53),
             (42, 53, 35),
+            (35, 42, 53),
             (53, 35, 42),
 
             # DFR (47, 26, 33)
-            (26, 33, 47),
             (33, 47, 26),
+            (26, 33, 47),
             (47, 26, 33),
         )):
 
@@ -203,50 +170,6 @@ def find_corner(cube, f0, f1, f2):
             return index
 
     raise Exception("Could not find corner f0/f1/f2 %s/%s/%s in\n%s\n" % (f0, f1, f2, cube2str(cube)))
-
-    '''
-    corner = FIND_CORNER(cube, f0, f1, f2, U, 2, B, 4, R, 2, 0,  1,  2)
-
-    if corner is not None:
-        return corner
-
-    corner = FIND_CORNER(cube, f0, f1, f2, U, 0, L, 0, B, 6, 3,  4,  5)
-
-    if corner is not None:
-        return corner
-
-    corner = FIND_CORNER(cube, f0, f1, f2, U, 6, F, 0, L, 2, 6,  7,  8)
-
-    if corner is not None:
-        return corner
-
-    corner = FIND_CORNER(cube, f0, f1, f2, U, 4, R, 0, F, 2, 9,  10, 11)
-
-    if corner is not None:
-        return corner
-
-    corner = FIND_CORNER(cube, f0, f1, f2, D, 0, L, 4, F, 6, 12, 13, 14)
-
-    if corner is not None:
-        return corner
-
-    corner = FIND_CORNER(cube, f0, f1, f2, D, 6, B, 0, L, 6, 15, 16, 17)
-
-    if corner is not None:
-        return corner
-
-    corner = FIND_CORNER(cube, f0, f1, f2, D, 4, R, 4, B, 2, 18, 19, 20)
-
-    if corner is not None:
-        return corner
-
-    corner = FIND_CORNER(cube, f0, f1, f2, D, 2, F, 4, R, 6, 21, 22, 23, debug=True)
-
-    if corner is not None:
-        return corner
-
-    raise Exception("Could not find corner f0/f1/f2 %s/%s/%s in\n%s\n" % (f0, f1, f2, cube2str(cube)))
-    '''
 
 
 def index_corner(cube, f0, f1, f2):
@@ -267,24 +190,6 @@ def index_corner(cube, f0, f1, f2):
     idx_idx[idx_nc] = ic
     idx_nc += 1
     idx_ic -= 3
-
-
-'''
-def FIND_EDGE(cube, f0, f1, F0, O0, F1, O1, I0, I1):
-    assert isinstance(f0, int), "f0 is a %s, it must be an int" % type(f0)
-    assert isinstance(f1, int), "f1 is a %s, it must be an int" % type(f1)
-
-    e0 = cube[POS(F0, O0)]
-
-    if e0 == f0:
-        if cube[POS(F1, O1)] == f1:
-            return I1
-    elif e0 == f1:
-        if cube[POS(F1, O1)] == f0:
-            return I0
-
-    return None
-'''
 
 
 def find_edge(cube, f0, f1):
@@ -348,70 +253,6 @@ def find_edge(cube, f0, f1):
             return index
 
     raise Exception("Could not find edge f0/f1 %s/%s\n%s" % (f0, f1, cube2str(cube)))
-
-    '''
-    edge = FIND_EDGE(cube, f0, f1, U, 1, B, 5, 0,  1)
-
-    if edge is not None:
-        return edge
-
-    edge = FIND_EDGE(cube, f0, f1, U, 7, L, 1, 2,  3)
-
-    if edge is not None:
-        return edge
-
-    edge = FIND_EDGE(cube, f0, f1, U, 5, F, 1, 4,  5)
-
-    if edge is not None:
-        return edge
-
-    edge = FIND_EDGE(cube, f0, f1, U, 3, R, 1, 6,  7)
-
-    if edge is not None:
-        return edge
-
-    edge = FIND_EDGE(cube, f0, f1, L, 3, F, 7, 8,  9)
-
-    if edge is not None:
-        return edge
-
-    edge = FIND_EDGE(cube, f0, f1, B, 7, L, 7, 10, 11)
-
-    if edge is not None:
-        return edge
-
-    edge = FIND_EDGE(cube, f0, f1, D, 7, L, 5, 12, 13)
-
-    if edge is not None:
-        return edge
-
-    edge = FIND_EDGE(cube, f0, f1, R, 3, B, 3, 14, 15)
-
-    if edge is not None:
-        return edge
-
-    edge = FIND_EDGE(cube, f0, f1, D, 5, B, 1, 16, 17)
-
-    if edge is not None:
-        return edge
-
-    edge = FIND_EDGE(cube, f0, f1, F, 3, R, 7, 18, 19)
-
-    if edge is not None:
-        return edge
-
-    edge = FIND_EDGE(cube, f0, f1, D, 3, R, 5, 20, 21)
-
-    if edge is not None:
-        return edge
-
-    edge = FIND_EDGE(cube, f0, f1, D, 1, F, 5, 22, 23)
-
-    if edge is not None:
-        return edge
-
-    raise Exception("Could not find edge f0/f1 %s/%s\n%s" % (f0, f1, cube2str(cube)))
-    '''
 
 
 def index_edge(cube, f0, f1):
@@ -540,6 +381,7 @@ def rotate(cube, f, r):
     else:
         raise Exception("rotate r '%s' is invalid" % r)
 
+    solution.append(step)
     tmp_cube = [0] + cube
     cube = rotate_333(tmp_cube, step)
     cube = cube[1:]
@@ -735,6 +577,7 @@ def solve_one(cube, dorot):
 
     print("FINAL CUBE:\n%s" % (cube2str(cube)))
 
+
 class RubiksCube333(object):
 
     def __init__(self, state, order):
@@ -778,3 +621,4 @@ class RubiksCube333(object):
 
     def solve(self):
         solve_one(self.state, True)
+        self.solution = solution
