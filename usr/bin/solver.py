@@ -8,15 +8,15 @@ logging.basicConfig(level=logging.INFO,
 log = logging.getLogger(__name__)
 
 
-# 3x3x3
-#    default='RRBBUFBFBRLRRRFRDDURUBFBBRFLUDUDFLLFFLLLLDFBDDDUUBDLUU')
-#    default='UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB') # solved
+# Solved 3x3x3
+# UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB
+
+# If the user did not specify a cube to solve, solve this random one
 if len(sys.argv) < 2:
     cube_state = "RRBBUFBFBRLRRRFRDDURUBFBBRFLUDUDFLLFFLLLLDFBDDDUUBDLUU"
-    #cube_state = 'UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB' # solved
 else:
     cube_state = sys.argv[1]
 
 cube = RubiksCube333(cube_state, 'URFDLB')
 cube.solve()
-print("SOLUTION (%d steps): %s" % (len(cube.solution), " ".join(cube.solution)))
+print("\nSOLUTION (%d steps): %s\n" % (len(cube.solution), " ".join(cube.solution)))

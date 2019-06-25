@@ -205,6 +205,9 @@ def RFIX(RR):
 
 
 def get_step_string(f, r):
+    """
+    Give the face (f) and rotation (r), return the string equivalent such as U, U', U2, etc
+    """
     r &= 3
     step = side2str[f]
 
@@ -222,6 +225,9 @@ def get_step_string(f, r):
 
 
 def rotate(cube, step):
+    """
+    Apply `step` to `cube` and return the new cube state
+    """
     return [cube[x] for x in swaps_333[step]]
 
 
@@ -347,7 +353,7 @@ class RubiksCube333(object):
                     mv += 1
 
     def solve(self):
-        log.info("INIT CUBE:\n%s" % (cube2strcolor(self.state)))
+        print("INIT CUBE:\n%s" % (cube2strcolor(self.state)))
         solution_len = len(self.solution)
         prev_solution_len = solution_len
 
@@ -433,8 +439,8 @@ class RubiksCube333(object):
         self.solution.append("COMMENT phase 9: solve edges UR, UF and UL (%d steps)" % (solution_len - prev_solution_len))
         prev_solution_len = solution_len
 
-        log.info("FINAL CUBE:\n%s" % (cube2strcolor(self.state)))
-        log.info(get_alg_cubing_net_url(self.solution))
+        print("FINAL CUBE:\n%s" % (cube2strcolor(self.state)))
+        print(get_alg_cubing_net_url(self.solution))
 
         # Remove the comments from the solution
         self.solution = [x for x in self.solution if not x.startswith("COMMENT")]
