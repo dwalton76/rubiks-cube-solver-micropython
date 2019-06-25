@@ -173,10 +173,6 @@ def find_corner(cube, f0, f1, f2):
 
 
 def index_corner(cube, f0, f1, f2):
-    assert isinstance(f0, int), "f0 is a %s, it must be an int" % type(f0)
-    assert isinstance(f1, int), "f1 is a %s, it must be an int" % type(f1)
-    assert isinstance(f2, int), "f2 is a %s, it must be an int" % type(f2)
-
     global idx_ic
     global idx_nc
     global idx
@@ -196,9 +192,6 @@ def find_edge(cube, f0, f1):
     """
     Return a number from 0-23 that indicates where edge f0/f1 is located
     """
-    assert isinstance(f0, int), "f0 is a %s, it must be an int" % type(f0)
-    assert isinstance(f1, int), "f1 is a %s, it must be an int" % type(f1)
-
     for (index, (edge0, edge1)) in enumerate((
             # UB
             (37, 1),
@@ -256,8 +249,6 @@ def find_edge(cube, f0, f1):
 
 
 def index_edge(cube, f0, f1):
-    assert isinstance(f0, int), "f0 is a %s, it must be an int" % type(f0)
-    assert isinstance(f1, int), "f1 is a %s, it must be an int" % type(f1)
     global idx_ie
     global idx_ne
     global idx
@@ -271,46 +262,6 @@ def index_edge(cube, f0, f1):
     idx_idx[idx_ne] = ie
     idx_ne += 1
     idx_ie -= 2
-
-
-opposite = [D, B, U, F, L, R]
-
-def add_mv(f, r):
-    assert isinstance(f, int), "f is a %s, it must be an int" % type(f)
-    assert isinstance(r, int), "r is a %s, it must be an int" % type(r)
-    global mv_n
-    i   = mv_n
-    mrg = False
-
-    while i > 0:
-        i -= 1
-
-        fi = mv_f[i]
-
-        if f == fi:
-            r += mv_r[i]
-            r = RFIX(r)
-
-            if r != 0:
-                mv_r[i] = r
-            else:
-                mv_n -= 1
-
-                while i < mv_n:
-                    mv_f[i] = mv_f[i+1]
-                    mv_r[i] = mv_r[i+1]
-                    i += 1
-
-            mrg = True
-            break
-
-        if opposite[f] != fi:
-            break
-
-    if not mrg:
-        mv_f[mv_n] = f
-        mv_r[mv_n] = RFIX(r)
-        mv_n += 1
 
 
 swaps_333 = {
@@ -347,37 +298,19 @@ def rotate_333(cube, step):
 
 
 def rotate(cube, f, r):
-    assert isinstance(f, int), "f is a %s, it must be an int" % type(f)
-    assert isinstance(r, int), "r is a %s, it must be an int" % type(r)
     r &= 3
 
     # f is the face
-    # r has to be 1/4 forward, 1/4 backward or 1/2 turn
-    # log.info("rotate: f %s (%s), r %s" % (f, side2str[f], r))
-
+    # r is 1/4 forward, 1/4 backward or 1/2 turn
     # f will be an int in 0..5, convert that to side name (U, L, etc)
     step = side2str[f]
 
-    # r has to be 1/4 forward, 1/4 backward or 1/2 turn
-    # FAIL: pass ' 2
-    # BETTER (edges solved): pass 2 '
-    # FAIL: ' pass 2
-    # FAIL: ' 2 pass
-    # FAIL: 2 ' pass
-    # FAIL: 2 pass '
-
     if r == 1:
-        #step += "'"
-        #step += "2"
         pass
     elif r == 2:
-        #step += "'"
         step += "2"
-        #pass
     elif r == 3:
         step += "'"
-        #step += "2"
-        #pass
     else:
         raise Exception("rotate r '%s' is invalid" % r)
 
@@ -388,90 +321,12 @@ def rotate(cube, f, r):
     return cube
 
 
-    '''
-    if f == U:
-        rot_edges(cube, r, B, 4, R, 0, F, 0, L, 0)
-    elif f == F:
-        rot_edges(cube, r, U, 4, R, 6, D, 0, L, 2)
-    elif f == D:
-        rot_edges(cube, r, F, 4, R, 4, B, 0, L, 4)
-    elif f == B:
-        rot_edges(cube, r, D, 4, R, 2, U, 0, L, 6)
-    elif f == R:
-        rot_edges(cube, r, U, 2, B, 2, D, 2, F, 2)
-    elif f == L:
-        rot_edges(cube, r, U, 6, F, 6, D, 6, B, 6)
-    else:
-        raise Exception("rotate() invalid f %s" % f)
-
-    f *= 8
-
-    if r == 1:
-        p         = cube[f+7]
-        cube[f+7] = cube[f+5]
-        cube[f+5] = cube[f+3]
-        cube[f+3] = cube[f+1]
-        cube[f+1] = p
-        p         = cube[f+6]
-        cube[f+6] = cube[f+4]
-        cube[f+4] = cube[f+2]
-        cube[f+2] = cube[f]
-        cube[f]   = p
-
-    elif r == 2:
-        p         = cube[f+1]
-        cube[f+1] = cube[f+5]
-        cube[f+5] = p
-        p         = cube[f+3]
-        cube[f+3] = cube[f+7]
-        cube[f+7] = p
-        p         = cube[f]
-        cube[f]   = cube[f+4]
-        cube[f+4] = p
-        p         = cube[f+2]
-        cube[f+2] = cube[f+6]
-        cube[f+6] = p
-
-    elif r == 3:
-        p         = cube[f+1]
-        cube[f+1] = cube[f+3]
-        cube[f+3] = cube[f+5]
-        cube[f+5] = cube[f+7]
-        cube[f+7] = p
-        p         = cube[f]
-        cube[f]   = cube[f+2]
-        cube[f+2] = cube[f+4]
-        cube[f+4] = cube[f+6]
-        cube[f+6] = p
-
-    else:
-        raise Exception("rotate r %s is invalid" % r)
-    '''
-
-
-def solve_phase(cube, mtb, mtd, dorot=True):
+def solve_phase(cube, mtb, mtd):
     global idx
     sz = len(mtd) / mtb
     idx = sz - idx
 
-    #print(cube2str(cube))
-    #sys.exit(0)
-    expected = """
-        0 0 0
-        0 0 0
-        0 0 0
-
- 5 5 5  1 1 1  4 4 4  3 3 3
- 5 5 5  1 1 1  4 4 4  3 3 3
- 5 5 5  1 1 1  4 4 4  3 3 3
-
-        2 2 2
-        2 2 2
-        2 2 2
-"""
-
-    # assert cube2str(cube) == expected, "'%s' != '%s'" % (cube2str(cube), expected)
-    log.info("solve_phase: mtb %s, len(mtd) %s, dorot %s, sz %s, idx %s" % (mtb, len(mtd), dorot, sz, idx))
+    log.info("solve_phase: mtb %s, len(mtd) %s, sz %s, idx %s" % (mtb, len(mtd), sz, idx))
 
     if idx > 0:
         i = int((idx - 1) * mtb)
@@ -483,10 +338,7 @@ def solve_phase(cube, mtb, mtd, dorot=True):
             mv = 0
             f0 = int(b / 3)
             r0 = RFIX(b - (f0 * 3) + 1)
-            add_mv(f0, r0)
-
-            if dorot:
-                cube = rotate(cube, f0, r0)
+            cube = rotate(cube, f0, r0)
 
             mv += 1
             while mv < mvm:
@@ -508,17 +360,14 @@ def solve_phase(cube, mtb, mtd, dorot=True):
                     f1 += 1
 
                 f0 = f1
-                add_mv(f0, r0)
-
-                if dorot:
-                    cube = rotate(cube, f0, r0)
+                cube = rotate(cube, f0, r0)
 
                 mv += 1
     return cube
 
 
-def solve_one(cube, dorot):
-    print("INIT CUBE:\n%s" % (cube2str(cube)))
+def solve_one(cube):
+    log.info("INIT CUBE:\n%s" % (cube2str(cube)))
 
     # phase 1 - solve edges DF DR
     index_init()
@@ -573,9 +422,9 @@ def solve_one(cube, dorot):
     index_edge(cube, U, F)
     index_edge(cube, U, L)
     index_last()
-    cube = solve_phase(cube, mtb8, mtd8, dorot)
+    cube = solve_phase(cube, mtb8, mtd8)
 
-    print("FINAL CUBE:\n%s" % (cube2str(cube)))
+    log.info("FINAL CUBE:\n%s" % (cube2str(cube)))
 
 
 class RubiksCube333(object):
@@ -620,5 +469,5 @@ class RubiksCube333(object):
                 self.state.append(D)
 
     def solve(self):
-        solve_one(self.state, True)
+        solve_one(self.state)
         self.solution = solution
