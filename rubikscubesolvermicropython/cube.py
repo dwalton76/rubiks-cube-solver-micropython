@@ -308,7 +308,8 @@ class RubiksCube333(object):
         self.idx_ne += 1
         self.idx_ie -= 2
 
-    def solve_phase(self, mtb, mtd):
+    def solve_phase(self, phase, mtb, mtd):
+        # print("phase %d has %s entries" % (phase, len(mtd)))
         sz = len(mtd) / mtb
         self.idx = sz - self.idx
 
@@ -353,91 +354,56 @@ class RubiksCube333(object):
                     mv += 1
 
     def solve(self):
+
+        def get_corners_edges_desc(corners, edges):
+            result = ""
+
+            if corners:
+                result += "corners"
+                for corner in corners:
+                    result += " " + "".join(corner)
+
+            if edges:
+                result += "edges"
+                for edge in edges:
+                    result += " " + "".join(edge)
+
+            return result
+
         print("INIT CUBE:\n%s" % (cube2strcolor(self.state)))
         solution_len = len(self.solution)
         prev_solution_len = solution_len
 
-        # phase 1 - solve edges DF DR
-        self.index_init()
-        self.index_edge("D", "F")
-        self.index_edge("D", "R")
-        self.solve_phase(mtb0, mtd0)
-        solution_len = len(self.solution)
-        self.solution.append("COMMENT phase 1: solve edges DF DR (%d steps)" % (solution_len - prev_solution_len))
-        prev_solution_len = solution_len
+        # We should be able to drop in different phases/tables in the future
+        phases = (
+            (1, (), (("D", "F"), ("D", "R")), mtb0, mtd0),
+            (2, (("D", "F", "R"),), (("F", "R"),), mtb1, mtd1),
+            (3, (), (("D", "B"),), mtb2, mtd2),
+            (4, (("D", "R", "B"),), (("R", "B"),), mtb3, mtd3),
+            (5, (), (("D", "L"),), mtb4, mtd4),
+            (6, (("D", "B", "L"),), (("B", "L"),), mtb5, mtd5),
+            (7, (("D", "L", "F"),), (("L", "F"),), mtb6, mtd6),
+            (8, (("U", "R", "F"), ("U", "F", "L"), ("U", "L", "B")), (), mtb7, mtd7),
+            (9, (), (("U", "R"), ("U", "F"), ("U", "L")), mtb8, mtd8),
+        )
 
-        # phase 2 - solve corner DFR and edge FR
-        self.index_init()
-        self.index_corner("D", "F", "R")
-        self.index_edge("F", "R")
-        self.solve_phase(mtb1, mtd1)
-        solution_len = len(self.solution)
-        self.solution.append("COMMENT phase 2: solve corner DFR and edge FR (%d steps)" % (solution_len - prev_solution_len))
-        prev_solution_len = solution_len
+        for (phase, corners, edges, mtb, mtd) in phases:
+            self.index_init()
 
-        # phase 3 - solve edge DB
-        self.index_init()
-        self.index_edge("D", "B")
-        self.solve_phase(mtb2, mtd2)
-        solution_len = len(self.solution)
-        self.solution.append("COMMENT phase 3: solve edge DB (%d steps)" % (solution_len - prev_solution_len))
-        prev_solution_len = solution_len
+            for corner in corners:
+                self.index_corner(*corner)
 
-        # phase 4 - solve corner DRB and edge RB
-        self.index_init()
-        self.index_corner("D", "R", "B")
-        self.index_edge("R", "B")
-        self.solve_phase(mtb3, mtd3)
-        solution_len = len(self.solution)
-        self.solution.append("COMMENT phase 4: solve corner DRB and edge RB (%d steps)" % (solution_len - prev_solution_len))
-        prev_solution_len = solution_len
+            for edge in edges:
+                self.index_edge(*edge)
 
-        # phase 5 - solve edge DL
-        self.index_init()
-        self.index_edge("D", "L")
-        self.solve_phase(mtb4, mtd4)
-        solution_len = len(self.solution)
-        self.solution.append("COMMENT phase 5: solve edge DL (%d steps)" % (solution_len - prev_solution_len))
-        prev_solution_len = solution_len
+            if phase == len(phases):
+                self.index_last()
 
-        # phase 6 - solve corner DBL and edge BL
-        self.index_init()
-        self.index_corner("D", "B", "L")
-        self.index_edge("B", "L")
-        self.solve_phase(mtb5, mtd5)
-        solution_len = len(self.solution)
-        self.solution.append("COMMENT phase 6: solve corner DBL and edge BL (%d steps)" % (solution_len - prev_solution_len))
-        prev_solution_len = solution_len
-
-        # phase 7 - solve corner DLF and edge LF
-        self.index_init()
-        self.index_corner("D", "L", "F")
-        self.index_edge("L", "F")
-        self.solve_phase(mtb6, mtd6)
-        solution_len = len(self.solution)
-        self.solution.append("COMMENT phase 7: solve corner DLF and edge LF (%d steps)" % (solution_len - prev_solution_len))
-        prev_solution_len = solution_len
-
-        # phase 8 - solve corners URF, UFL, and ULB
-        self.index_init()
-        self.index_corner("U", "R", "F")
-        self.index_corner("U", "F", "L")
-        self.index_corner("U", "L", "B")
-        self.solve_phase(mtb7, mtd7)
-        solution_len = len(self.solution)
-        self.solution.append("COMMENT phase 8: solve corners URF, UFL, and ULB (%d steps)" % (solution_len - prev_solution_len))
-        prev_solution_len = solution_len
-
-        # phase 9 - solve edges UR, UF and UL
-        self.index_init()
-        self.index_edge("U", "R")
-        self.index_edge("U", "F")
-        self.index_edge("U", "L")
-        self.index_last()
-        self.solve_phase(mtb8, mtd8)
-        solution_len = len(self.solution)
-        self.solution.append("COMMENT phase 9: solve edges UR, UF and UL (%d steps)" % (solution_len - prev_solution_len))
-        prev_solution_len = solution_len
+            self.solve_phase(phase, mtb, mtd)
+            solution_len = len(self.solution)
+            self.solution.append("COMMENT phase %s: solve %s (%d steps)" % (
+                phase, get_corners_edges_desc(corners, edges), (solution_len - prev_solution_len)))
+            prev_solution_len = solution_len
 
         print("FINAL CUBE:\n%s" % (cube2strcolor(self.state)))
         print(get_alg_cubing_net_url(self.solution))
