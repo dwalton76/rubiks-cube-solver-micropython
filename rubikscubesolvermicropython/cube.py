@@ -410,3 +410,4 @@ class RubiksCube333(object):
 
         # Remove the comments from the solution
         self.solution = [x for x in self.solution if not x.startswith("COMMENT")]
+        return self.solution
