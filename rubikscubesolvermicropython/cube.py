@@ -15,9 +15,9 @@ from rubikscubesolvermicropython.movetables import (
 
 log = logging.getLogger(__name__)
 
-#-----------------------
-# Face indices to string
-#-----------------------
+
+FACELET_COUNT = 54
+
 side2str = {
     0 : "U",
     1 : "F",
@@ -26,7 +26,6 @@ side2str = {
     4 : "R",
     5 : "L",
 }
-
 
 cube_layout = """
           00 01 02
@@ -41,6 +40,51 @@ cube_layout = """
           48 49 50
           51 52 53
 """
+
+kociemba_sequence = (
+    0, 1, 2, 3, 4, 5, 6, 7, 8, # U
+    27, 28, 29, 30, 31, 32, 33, 34, 35, # R
+    18, 19, 20, 21, 22, 23, 24, 25, 26, # F
+    45, 46, 47, 48, 49, 50, 51, 52, 53, # D
+    9, 10, 11, 12, 13, 14, 15, 16, 17, # L
+    36, 37, 38, 39, 40, 41, 42, 43, 44, # B
+)
+
+# There are 24 combinations to try in terms of which colors are on side U and side F
+recolor_maps = (
+    {"U": "U", "L": "L", "F": "F", "R": "R", "B": "B", "D": "D"}, # change nothing
+    {"U": "U", "L": "B", "F": "L", "R": "F", "B": "R", "D": "D"}, # rotate clockwise
+    {"U": "U", "L": "F", "F": "R", "R": "B", "B": "L", "D": "D"}, # rotate counter-clockwise
+    {"U": "U", "L": "R", "F": "B", "R": "L", "B": "F", "D": "D"}, # rotate clockwise 2x
+
+
+    {
+        "U": "R",
+        "L": "U",
+        "F": "F",
+        "R": "D",
+        "B": "B",
+        "D": "L",
+    },
+    # L to top, R to bottom
+    # L to top, R to bottom, rotate clockwise
+    # L to top, R to bottom, rotate counter-clockwise
+    # L to top, R to bottom, rotate clockwise 2x
+
+    {
+        "U": "B",
+        "L": "L",
+        "F": "U",
+        "R": "R",
+        "B": "D",
+        "D": "F",
+    }
+    # F to top, B to bottom
+    # F to top, B to bottom, rotate clockwise
+    # F to top, B to bottom, rotate counter-clockwise
+    # F to top, B to bottom, rotate clockwise 2x
+
+)
 
 
 # facelet swaps for 3x3x3 moves
@@ -79,7 +123,6 @@ def cube2str(cube):
     """
     Return a readable string of the cube
     """
-
     return """
         %s %s %s
         %s %s %s
@@ -224,11 +267,20 @@ def get_step_string(f, r):
     return step
 
 
-def rotate(cube, step):
-    """
-    Apply `step` to `cube` and return the new cube state
-    """
-    return [cube[x] for x in swaps_333[step]]
+def get_solution_len_minus_rotates(solution):
+    count = 0
+
+    for step in solution:
+
+        if step.startswith("COMMENT"):
+            continue
+
+        if step in ("x", "x'", "x2", "y", "y'", "y2", "z", "z'", "z2"):
+            continue
+
+        count += 1
+
+    return count
 
 
 class RubiksCube333(object):
@@ -256,6 +308,87 @@ class RubiksCube333(object):
         else:
             raise Exception("Add support for order %s" % order)
 
+        self.index_init_all()
+
+    def get_kociemba_string(self):
+        return "".join([x for x in kociemba_sequence])
+
+    def rotate(self, step):
+        new_state = [self.state[x] for x in swaps_333[step]]
+        self.state = new_state
+        self.solution.append(step)
+
+    def rotate_x(self):
+        self.rotate("x")
+
+    def rotate_x_reverse(self):
+        self.rotate("x'")
+
+    def rotate_y(self):
+        self.rotate("y")
+
+    def rotate_y_reverse(self):
+        self.rotate("y'")
+
+    def rotate_z(self):
+        self.rotate("z")
+
+    def rotate_z_reverse(self):
+        self.rotate("z'")
+
+    def rotate_side_X_to_Y(self, x, y):
+        assert x in ('U', 'L', 'F', 'R', 'B', 'D'), "invalid side %s" % x
+        assert y in ('U', 'L', 'F', 'R', 'B', 'D'), "invalid side %s" % y
+
+        if y == "U":
+            pos_to_check = 4
+        elif y == "L":
+            pos_to_check = 13
+        elif y == "F":
+            pos_to_check = 22
+        elif y == "R":
+            pos_to_check = 31
+        elif y == "B":
+            pos_to_check = 40
+        elif y == "D":
+            pos_to_check = 49
+
+        F_pos_to_check = 22
+        D_pos_to_check = 49
+
+        while self.state[pos_to_check] != x:
+            # log.info("%s (%s): rotate %s to %s, pos_to_check %s, state at pos_to_check %s" %
+            #    (side, side.mid_pos, x, y, pos_to_check, self.state[pos_to_check]))
+
+            if self.state[F_pos_to_check] == x and y == "U":
+                self.rotate_x()
+
+            elif self.state[F_pos_to_check] == x and y == "D":
+                self.rotate_x_reverse()
+
+            elif self.state[D_pos_to_check] == x and y == "F":
+                self.rotate_x()
+
+            elif self.state[D_pos_to_check] == x and y == "U":
+                self.rotate_x()
+                self.rotate_x()
+
+            else:
+                self.rotate_y()
+
+    def rotate_U_to_U(self):
+        self.rotate_side_X_to_Y("U", "U")
+
+    def rotate_F_to_F(self):
+        self.rotate_side_X_to_Y("F", "F")
+
+    def recolor(self, recolor_map):
+        for x in range(FACELET_COUNT):
+            x_color = self.state[x]
+            x_new_color = recolor_map[x_color]
+            self.state[x] = x_new_color
+
+    def index_init_all(self):
         NPIECE = 3
         self.idx_idx = [None] * NPIECE
         self.idx_nc = 0
@@ -324,8 +457,7 @@ class RubiksCube333(object):
                 f0 = int(b / 3)
                 r0 = RFIX(b - (f0 * 3) + 1)
                 step = get_step_string(f0, r0)
-                self.state = rotate(self.state, step)
-                self.solution.append(step)
+                self.rotate(step)
 
                 mv += 1
                 while mv < mvm:
@@ -348,8 +480,7 @@ class RubiksCube333(object):
 
                     f0 = f1
                     step = get_step_string(f0, r0)
-                    self.state = rotate(self.state, step)
-                    self.solution.append(step)
+                    self.rotate(step)
 
                     mv += 1
 
@@ -359,12 +490,12 @@ class RubiksCube333(object):
             result = ""
 
             if corners:
-                result += "corners"
+                result += " corners"
                 for corner in corners:
                     result += " " + "".join(corner)
 
             if edges:
-                result += "edges"
+                result += " edges"
                 for edge in edges:
                     result += " " + "".join(edge)
 
@@ -373,6 +504,8 @@ class RubiksCube333(object):
         print("INIT CUBE:\n%s" % (cube2strcolor(self.state)))
         solution_len = len(self.solution)
         prev_solution_len = solution_len
+        self.rotate_U_to_U()
+        self.rotate_F_to_F()
 
         # We should be able to drop in different phases/tables in the future
         phases = (
@@ -387,23 +520,54 @@ class RubiksCube333(object):
             (9, (), (("U", "R"), ("U", "F"), ("U", "L")), mtb8, mtd8),
         )
 
-        for (phase, corners, edges, mtb, mtd) in phases:
-            self.index_init()
+        # Try all 24 rotations, keep the one with the shortest solution
+        min_solution = None
+        min_solution_len_without_comments = 999
+        min_solution_recolor_map = None
 
-            for corner in corners:
-                self.index_corner(*corner)
+        original_state = self.state[:]
+        original_solution = self.solution [:]
 
-            for edge in edges:
-                self.index_edge(*edge)
-
-            if phase == len(phases):
-                self.index_last()
-
-            self.solve_phase(phase, mtb, mtd)
+        for recolor_map in recolor_maps:
+            self.state = original_state[:]
+            self.solution = original_solution[:]
             solution_len = len(self.solution)
-            self.solution.append("COMMENT phase %s: solve %s (%d steps)" % (
-                phase, get_corners_edges_desc(corners, edges), (solution_len - prev_solution_len)))
             prev_solution_len = solution_len
+            self.recolor(recolor_map)
+            self.rotate_U_to_U()
+            self.rotate_F_to_F()
+            self.index_init_all()
+
+            for (phase, corners, edges, mtb, mtd) in phases:
+                self.index_init()
+
+                for corner in corners:
+                    self.index_corner(*corner)
+
+                for edge in edges:
+                    self.index_edge(*edge)
+
+                if phase == len(phases):
+                    self.index_last()
+
+                self.solve_phase(phase, mtb, mtd)
+                solution_len = len(self.solution)
+                self.solution.append("COMMENT phase %s: solve %s (%d steps)" % (
+                    phase, get_corners_edges_desc(corners, edges), (solution_len - prev_solution_len)))
+                prev_solution_len = solution_len
+
+            solution_len = len(self.solution)
+            solution_len_without_comments = get_solution_len_minus_rotates(self.solution)
+
+            if solution_len_without_comments < min_solution_len_without_comments:
+                min_solution_len_without_comments = solution_len_without_comments
+                min_solution_recolor_map = recolor_map
+                min_solution = self.solution[:]
+                log.info("(NEW MIN) recolor_map %s solution len %d" % (recolor_map, solution_len_without_comments))
+            else:
+                log.info("recolor_map %s solution len %d" % (recolor_map, solution_len_without_comments))
+
+        self.solution = min_solution
 
         print("FINAL CUBE:\n%s" % (cube2strcolor(self.state)))
         print(get_alg_cubing_net_url(self.solution))
