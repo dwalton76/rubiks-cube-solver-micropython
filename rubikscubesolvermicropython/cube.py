@@ -277,6 +277,154 @@ def get_solution_len_minus_rotates(solution):
     return count
 
 
+def apply_rotations(size, step, rotations):
+    """
+    Apply the "rotations" to step and return the step. This is used by
+    compress_solution() to remove all of the whole cube rotations from
+    the solution.
+    """
+
+    if step.startswith("COMMENT"):
+        return step
+
+    for rotation in rotations:
+        # remove the number at the start of the rotation...for a 4x4x4 cube
+        # there might be a 4U rotation (to rotate about the y-axis) but we
+        # don't need to keep the '4' part.
+        rotation = rotation[1:]
+
+        if rotation == "U" or rotation == "D'":
+            if "U" in step:
+                pass
+            elif "L" in step:
+                step = step.replace("L", "F")
+            elif "F" in step:
+                step = step.replace("F", "R")
+            elif "R" in step:
+                step = step.replace("R", "B")
+            elif "B" in step:
+                step = step.replace("B", "L")
+            elif "D" in step:
+                pass
+
+        elif rotation == "U'" or rotation == "D":
+            if "U" in step:
+                pass
+            elif "L" in step:
+                step = step.replace("L", "B")
+            elif "F" in step:
+                step = step.replace("F", "L")
+            elif "R" in step:
+                step = step.replace("R", "F")
+            elif "B" in step:
+                step = step.replace("B", "R")
+            elif "D" in step:
+                pass
+
+        elif rotation == "F" or rotation == "B'":
+            if "U" in step:
+                step = step.replace("U", "L")
+            elif "L" in step:
+                step = step.replace("L", "D")
+            elif "F" in step:
+                pass
+            elif "R" in step:
+                step = step.replace("R", "U")
+            elif "B" in step:
+                pass
+            elif "D" in step:
+                step = step.replace("D", "R")
+
+        elif rotation == "F'" or rotation == "B":
+            if "U" in step:
+                step = step.replace("U", "R")
+            elif "L" in step:
+                step = step.replace("L", "U")
+            elif "F" in step:
+                pass
+            elif "R" in step:
+                step = step.replace("R", "D")
+            elif "B" in step:
+                pass
+            elif "D" in step:
+                step = step.replace("D", "L")
+
+        elif rotation == "R" or rotation == "L'":
+            if "U" in step:
+                step = step.replace("U", "F")
+            elif "L" in step:
+                pass
+            elif "F" in step:
+                step = step.replace("F", "D")
+            elif "R" in step:
+                pass
+            elif "B" in step:
+                step = step.replace("B", "U")
+            elif "D" in step:
+                step = step.replace("D", "B")
+
+        elif rotation == "R'" or rotation == "L":
+            if "U" in step:
+                step = step.replace("U", "B")
+            elif "L" in step:
+                pass
+            elif "F" in step:
+                step = step.replace("F", "U")
+            elif "R" in step:
+                pass
+            elif "B" in step:
+                step = step.replace("B", "D")
+            elif "D" in step:
+                step = step.replace("D", "F")
+
+        else:
+            raise Exception("%s is an invalid rotation" % rotation)
+
+    return step
+
+
+def compress_solution(solution):
+    result = []
+    rotations = []
+    tmp_solution = []
+
+    for step in solution:
+        if step == "x":
+            tmp_solution.append("3R")
+        elif step == "x'":
+            tmp_solution.append("3R'")
+        elif step == "x2":
+            tmp_solution.append("3R")
+            tmp_solution.append("3R")
+
+        elif step == "y":
+            tmp_solution.append("3U")
+        elif step == "y'":
+            tmp_solution.append("3U'")
+        elif step == "y2":
+            tmp_solution.append("3U")
+            tmp_solution.append("3U")
+
+        elif step == "z":
+            tmp_solution.append("3F")
+        elif step == "z'":
+            tmp_solution.append("3F'")
+        elif step == "z2":
+            tmp_solution.append("3F")
+            tmp_solution.append("3F")
+
+        else:
+            tmp_solution.append(step)
+
+    for step in tmp_solution:
+        if step.startswith("3"):
+            rotations.append(apply_rotations(3, step, rotations))
+        else:
+            result.append(apply_rotations(3, step, rotations))
+
+    return result
+
+
 class RubiksCube333(object):
 
     def __init__(self, state, order):
@@ -480,21 +628,6 @@ class RubiksCube333(object):
 
     def solve(self):
 
-        def get_corners_edges_desc(corners, edges):
-            result = ""
-
-            if corners:
-                result += " corners"
-                for corner in corners:
-                    result += " " + "".join(corner)
-
-            if edges:
-                result += " edges"
-                for edge in edges:
-                    result += " " + "".join(edge)
-
-            return result
-
         print("INIT CUBE:\n%s" % (cube2strcolor(self.state)))
         solution_len = len(self.solution)
         prev_solution_len = solution_len
@@ -503,15 +636,15 @@ class RubiksCube333(object):
 
         # We should be able to drop in different phases/tables in the future
         phases = (
-            (1, (), (("D", "F"), ("D", "R")), mtb0, mtd0),
-            (2, (("D", "F", "R"),), (("F", "R"),), mtb1, mtd1),
-            (3, (), (("D", "B"),), mtb2, mtd2),
-            (4, (("D", "R", "B"),), (("R", "B"),), mtb3, mtd3),
-            (5, (), (("D", "L"),), mtb4, mtd4),
-            (6, (("D", "B", "L"),), (("B", "L"),), mtb5, mtd5),
-            (7, (("D", "L", "F"),), (("L", "F"),), mtb6, mtd6),
-            (8, (("U", "R", "F"), ("U", "F", "L"), ("U", "L", "B")), (), mtb7, mtd7),
-            (9, (), (("U", "R"), ("U", "F"), ("U", "L")), mtb8, mtd8),
+            (1, "two edges", (), (("D", "F"), ("D", "R")), mtb0, mtd0),
+            (2, "one corner, one edge", (("D", "F", "R"),), (("F", "R"),), mtb1, mtd1),
+            (3, "one edge", (), (("D", "B"),), mtb2, mtd2),
+            (4, "one corner, one edge", (("D", "R", "B"),), (("R", "B"),), mtb3, mtd3),
+            (5, "one edge", (), (("D", "L"),), mtb4, mtd4),
+            (6, "one corner, one edge", (("D", "B", "L"),), (("B", "L"),), mtb5, mtd5),
+            (7, "one corner, one edge", (("D", "L", "F"),), (("L", "F"),), mtb6, mtd6),
+            (8, "last three corners", (("U", "R", "F"), ("U", "F", "L"), ("U", "L", "B")), (), mtb7, mtd7),
+            (9, "last three edges", (), (("U", "R"), ("U", "F"), ("U", "L")), mtb8, mtd8),
         )
 
         # Try all 24 rotations, keep the one with the shortest solution
@@ -544,7 +677,7 @@ class RubiksCube333(object):
             self.recolor(recolor_map)
             self.index_init_all()
 
-            for (phase, corners, edges, mtb, mtd) in phases:
+            for (phase, desc, corners, edges, mtb, mtd) in phases:
                 self.index_init()
 
                 for corner in corners:
@@ -558,8 +691,8 @@ class RubiksCube333(object):
 
                 self.solve_phase(phase, mtb, mtd)
                 solution_len = len(self.solution)
-                self.solution.append("COMMENT phase %s: solve %s (%d steps)" % (
-                    phase, get_corners_edges_desc(corners, edges), (solution_len - prev_solution_len)))
+                self.solution.append("COMMENT phase %s: %s (%d steps)" % (
+                    phase, desc, (solution_len - prev_solution_len)))
                 prev_solution_len = solution_len
 
             solution_len = get_solution_len_minus_rotates(self.solution)
@@ -572,7 +705,7 @@ class RubiksCube333(object):
             else:
                 log.info("recolor_map %s solution len %d" % (recolor_map, solution_len))
 
-        self.solution = min_solution
+        self.solution = compress_solution(min_solution)
 
         print("FINAL CUBE:\n%s" % (cube2strcolor(self.state)))
         print(get_alg_cubing_net_url(self.solution))
