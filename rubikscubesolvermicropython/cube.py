@@ -50,41 +50,35 @@ kociemba_sequence = (
     36, 37, 38, 39, 40, 41, 42, 43, 44, # B
 )
 
-# There are 24 combinations to try in terms of which colors are on side U and side F
-recolor_maps = (
-    {"U": "U", "L": "L", "F": "F", "R": "R", "B": "B", "D": "D"}, # change nothing
-    {"U": "U", "L": "B", "F": "L", "R": "F", "B": "R", "D": "D"}, # rotate clockwise
-    {"U": "U", "L": "F", "F": "R", "R": "B", "B": "L", "D": "D"}, # rotate counter-clockwise
-    {"U": "U", "L": "R", "F": "B", "R": "L", "B": "F", "D": "D"}, # rotate clockwise 2x
-
-
-    {
-        "U": "R",
-        "L": "U",
-        "F": "F",
-        "R": "D",
-        "B": "B",
-        "D": "L",
-    },
-    # L to top, R to bottom
-    # L to top, R to bottom, rotate clockwise
-    # L to top, R to bottom, rotate counter-clockwise
-    # L to top, R to bottom, rotate clockwise 2x
-
-    {
-        "U": "B",
-        "L": "L",
-        "F": "U",
-        "R": "R",
-        "B": "D",
-        "D": "F",
-    }
-    # F to top, B to bottom
-    # F to top, B to bottom, rotate clockwise
-    # F to top, B to bottom, rotate counter-clockwise
-    # F to top, B to bottom, rotate clockwise 2x
-
+# There are 24 combinations to try in terms of which colors
+# are on side U and side F
+rotations_24 = (
+    (),
+    ("y",),
+    ("y'",),
+    ("y", "y"),
+    ("x", "x"),
+    ("x", "x", "y"),
+    ("x", "x", "y'"),
+    ("x", "x", "y", "y"),
+    ("y'", "x"),
+    ("y'", "x", "y"),
+    ("y'", "x", "y'"),
+    ("y'", "x", "y", "y"),
+    ("x",),
+    ("x", "y"),
+    ("x", "y'"),
+    ("x", "y", "y"),
+    ("y", "x"),
+    ("y", "x", "y"),
+    ("y", "x", "y'"),
+    ("y", "x", "y", "y"),
+    ("x'",),
+    ("x'", "y"),
+    ("x'", "y'"),
+    ("x'", "y", "y"),
 )
+
 
 
 # facelet swaps for 3x3x3 moves
@@ -522,20 +516,32 @@ class RubiksCube333(object):
 
         # Try all 24 rotations, keep the one with the shortest solution
         min_solution = None
-        min_solution_len_without_comments = 999
+        min_solution_len = 999
         min_solution_recolor_map = None
 
         original_state = self.state[:]
         original_solution = self.solution [:]
 
-        for recolor_map in recolor_maps:
+        for rotations in rotations_24:
             self.state = original_state[:]
             self.solution = original_solution[:]
+
+            for step in rotations:
+                self.rotate(step)
+
             solution_len = len(self.solution)
             prev_solution_len = solution_len
+
+            recolor_map = {
+                self.state[4] : "U",
+                self.state[13] : "L",
+                self.state[22] : "F",
+                self.state[31] : "R",
+                self.state[40] : "B",
+                self.state[49] : "D",
+            }
+
             self.recolor(recolor_map)
-            self.rotate_U_to_U()
-            self.rotate_F_to_F()
             self.index_init_all()
 
             for (phase, corners, edges, mtb, mtd) in phases:
@@ -556,16 +562,15 @@ class RubiksCube333(object):
                     phase, get_corners_edges_desc(corners, edges), (solution_len - prev_solution_len)))
                 prev_solution_len = solution_len
 
-            solution_len = len(self.solution)
-            solution_len_without_comments = get_solution_len_minus_rotates(self.solution)
+            solution_len = get_solution_len_minus_rotates(self.solution)
 
-            if solution_len_without_comments < min_solution_len_without_comments:
-                min_solution_len_without_comments = solution_len_without_comments
+            if solution_len < min_solution_len:
+                min_solution_len = solution_len
                 min_solution_recolor_map = recolor_map
                 min_solution = self.solution[:]
-                log.info("(NEW MIN) recolor_map %s solution len %d" % (recolor_map, solution_len_without_comments))
+                log.info("(NEW MIN) recolor_map %s solution len %d" % (recolor_map, solution_len))
             else:
-                log.info("recolor_map %s solution len %d" % (recolor_map, solution_len_without_comments))
+                log.info("recolor_map %s solution len %d" % (recolor_map, solution_len))
 
         self.solution = min_solution
 
