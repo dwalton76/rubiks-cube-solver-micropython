@@ -453,7 +453,7 @@ class RubiksCube333(object):
         self.index_init_all()
 
     def get_kociemba_string(self):
-        return "".join([x for x in kociemba_sequence])
+        return "".join([self.state[x] for x in kociemba_sequence])
 
     def rotate(self, step):
         new_state = [self.state[x] for x in swaps_333[step]]
@@ -626,6 +626,25 @@ class RubiksCube333(object):
 
                     mv += 1
 
+    def verify_solution(self, original_state, solution):
+        """
+        Put the cube back in the original state and apply the solution to verify
+        that the cube is indeed solved.  This should always be the case but this
+        gives a nice way to catch weird bugs.
+        """
+        self.solution = []
+        self.state = original_state
+
+        for step in solution:
+            self.rotate(step)
+
+        kociemba_string = self.get_kociemba_string()
+
+        if kociemba_string != "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB":
+            print("ERROR: cube should be solved but it is not solved")
+            print(cube2strcolor(self.state))
+            sys.exit(0)
+
     def solve(self):
 
         print("INIT CUBE:\n%s" % (cube2strcolor(self.state)))
@@ -712,4 +731,7 @@ class RubiksCube333(object):
 
         # Remove the comments from the solution
         self.solution = [x for x in self.solution if not x.startswith("COMMENT")]
+
+        self.verify_solution(original_state, self.solution)
+
         return self.solution
