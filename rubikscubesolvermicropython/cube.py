@@ -262,6 +262,9 @@ def get_step_string(f, r):
 
 
 def get_solution_len_minus_rotates(solution):
+    """
+    Return the length of the solution ignoring comments and whole cube rotations
+    """
     count = 0
 
     for step in solution:
@@ -384,6 +387,9 @@ def apply_rotations(size, step, rotations):
 
 
 def compress_solution(solution):
+    """
+    Remove the whole cube rotations from 'solution'
+    """
     result = []
     rotations = []
     tmp_solution = []
@@ -426,6 +432,9 @@ def compress_solution(solution):
 
 
 class RubiksCube333(object):
+    """
+    A class for solving a 3x3x3 rubiks cube
+    """
 
     def __init__(self, state, order):
         SQUARES_PER_SIDE = 9
@@ -453,34 +462,23 @@ class RubiksCube333(object):
         self.index_init_all()
 
     def get_kociemba_string(self):
+        """
+        Return the cube state as a kociemba string
+        """
         return "".join([self.state[x] for x in kociemba_sequence])
 
     def rotate(self, step):
+        """
+        Apply 'step' to the cube and append 'step' to our solution list
+        """
         new_state = [self.state[x] for x in swaps_333[step]]
         self.state = new_state
         self.solution.append(step)
 
-    def rotate_x(self):
-        self.rotate("x")
-
-    def rotate_x_reverse(self):
-        self.rotate("x'")
-
-    def rotate_y(self):
-        self.rotate("y")
-
-    def rotate_y_reverse(self):
-        self.rotate("y'")
-
-    def rotate_z(self):
-        self.rotate("z")
-
-    def rotate_z_reverse(self):
-        self.rotate("z'")
-
     def rotate_side_X_to_Y(self, x, y):
-        assert x in ('U', 'L', 'F', 'R', 'B', 'D'), "invalid side %s" % x
-        assert y in ('U', 'L', 'F', 'R', 'B', 'D'), "invalid side %s" % y
+        """
+        Rotate the entire cube so that side x is on side y
+        """
 
         if y == "U":
             pos_to_check = 4
@@ -499,38 +497,48 @@ class RubiksCube333(object):
         D_pos_to_check = 49
 
         while self.state[pos_to_check] != x:
-            # log.info("%s (%s): rotate %s to %s, pos_to_check %s, state at pos_to_check %s" %
-            #    (side, side.mid_pos, x, y, pos_to_check, self.state[pos_to_check]))
 
             if self.state[F_pos_to_check] == x and y == "U":
-                self.rotate_x()
+                self.rotate("x")
 
             elif self.state[F_pos_to_check] == x and y == "D":
-                self.rotate_x_reverse()
+                self.rotate("x'")
 
             elif self.state[D_pos_to_check] == x and y == "F":
-                self.rotate_x()
+                self.rotate("x")
 
             elif self.state[D_pos_to_check] == x and y == "U":
-                self.rotate_x()
-                self.rotate_x()
+                self.rotate("x")
+                self.rotate("x")
 
             else:
-                self.rotate_y()
+                self.rotate("y")
 
     def rotate_U_to_U(self):
+        """
+        Rotate side U to the top
+        """
         self.rotate_side_X_to_Y("U", "U")
 
     def rotate_F_to_F(self):
+        """
+        Rotate side F to the front
+        """
         self.rotate_side_X_to_Y("F", "F")
 
     def recolor(self, recolor_map):
+        """
+        Recolor the squares of the cube per `recolor_map`
+        """
         for x in range(FACELET_COUNT):
             x_color = self.state[x]
             x_new_color = recolor_map[x_color]
             self.state[x] = x_new_color
 
     def index_init_all(self):
+        """
+        Initialize all indexes. This is called at the start of the solve for a cube.
+        """
         NPIECE = 3
         self.idx_idx = [None] * NPIECE
         self.idx_nc = 0
@@ -541,7 +549,7 @@ class RubiksCube333(object):
 
     def index_init(self):
         """
-        Initialize indexes
+        Initialize indexes. This is called at the start of each phase for solving a cube.
         """
         self.idx_nc = 0
         self.idx_ne = 0
@@ -549,7 +557,7 @@ class RubiksCube333(object):
 
     def index_last(self):
         """
-        Initialize indexes for the last time
+        Initialize indexes for the last phase
         """
         self.idx = ((self.idx >> 2) <<1 ) | (self.idx & 1);
 
@@ -583,7 +591,29 @@ class RubiksCube333(object):
         self.idx_ne += 1
         self.idx_ie -= 2
 
+    def verify_solution(self, original_state, solution):
+        """
+        Put the cube back in the original state and apply the solution to verify
+        that the cube is indeed solved.  This should always be the case but this
+        gives a nice way to catch weird bugs.
+        """
+        self.solution = []
+        self.state = original_state
+
+        for step in solution:
+            self.rotate(step)
+
+        kociemba_string = self.get_kociemba_string()
+
+        if kociemba_string != "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB":
+            print("ERROR: cube should be solved but it is not solved")
+            print(cube2strcolor(self.state))
+            sys.exit(0)
+
     def solve_phase(self, phase, mtb, mtd):
+        """
+        Solve a single phase per the mtb/mtd tables
+        """
         # print("phase %d has %s entries" % (phase, len(mtd)))
         sz = len(mtd) / mtb
         self.idx = sz - self.idx
@@ -626,26 +656,10 @@ class RubiksCube333(object):
 
                     mv += 1
 
-    def verify_solution(self, original_state, solution):
-        """
-        Put the cube back in the original state and apply the solution to verify
-        that the cube is indeed solved.  This should always be the case but this
-        gives a nice way to catch weird bugs.
-        """
-        self.solution = []
-        self.state = original_state
-
-        for step in solution:
-            self.rotate(step)
-
-        kociemba_string = self.get_kociemba_string()
-
-        if kociemba_string != "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB":
-            print("ERROR: cube should be solved but it is not solved")
-            print(cube2strcolor(self.state))
-            sys.exit(0)
-
     def solve(self):
+        """
+        Solve the cube and return the solution
+        """
 
         print("INIT CUBE:\n%s" % (cube2strcolor(self.state)))
         solution_len = len(self.solution)
@@ -720,9 +734,9 @@ class RubiksCube333(object):
                 min_solution_len = solution_len
                 min_solution_recolor_map = recolor_map
                 min_solution = self.solution[:]
-                log.info("(NEW MIN) recolor_map %s solution len %d" % (recolor_map, solution_len))
+                log.info("(NEW MIN) rotations %s, solution len %d" % (" ".join(rotations), solution_len))
             else:
-                log.info("recolor_map %s solution len %d" % (recolor_map, solution_len))
+                log.info("rotations %s, solution len %d" % (" ".join(rotations), solution_len))
 
         self.solution = compress_solution(min_solution)
 
