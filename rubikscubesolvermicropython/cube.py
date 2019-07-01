@@ -115,7 +115,7 @@ swaps_333 = {
 
 def cube2str(cube):
     """
-    Return a readable string of the cube
+    Return a human readable string for `cube`
     """
     return """
         %s %s %s
@@ -157,7 +157,7 @@ def cube2str(cube):
 
 def cube2strcolor(cube):
     """
-    Add color to the cube string
+    Add color to the `cube` string
     """
     cube_string = cube2str(cube)
     cube_string = cube_string.replace("U", "\033[97mU\033[0m") # White
@@ -171,7 +171,7 @@ def cube2strcolor(cube):
 
 def get_alg_cubing_net_url(solution):
     """
-    Return an alg.cubing.net URL for 'solution'
+    Return an alg.cubing.net URL for `solution`
     """
     url = "https://alg.cubing.net/?puzzle=3x3x3&alg="
 
@@ -190,7 +190,7 @@ def get_alg_cubing_net_url(solution):
 
 def find_corner(cube, f0, f1, f2):
     """
-    Return a number from 0-23 that indicates where corner f0/f1/f2 is located
+    Return a number from 0-23 that indicates where corner `f0/f1/f2` is located
     """
     for (index, (corner0, corner1, corner2)) in enumerate((
             (29, 2, 36), (36, 29, 2), (2, 36, 29), # UBR
@@ -211,7 +211,7 @@ def find_corner(cube, f0, f1, f2):
 
 def find_edge(cube, f0, f1):
     """
-    Return a number from 0-23 that indicates where edge f0/f1 is located
+    Return a number from 0-23 that indicates where edge `f0/f1` is located
     """
     for (index, (edge0, edge1)) in enumerate((
             (37, 1), (1, 37), # UB
@@ -243,7 +243,7 @@ def RFIX(RR):
 
 def get_step_string(f, r):
     """
-    Give the face (f) and rotation (r), return the string equivalent such as U, U', U2, etc
+    Give the face `f` and rotation `r`, return the string equivalent such as U, U', U2, etc
     """
     r &= 3
     step = side2str[f]
@@ -263,7 +263,7 @@ def get_step_string(f, r):
 
 def get_solution_len_minus_rotates(solution):
     """
-    Return the length of the solution ignoring comments and whole cube rotations
+    Return the length of `solution` ignoring comments and whole cube rotations
     """
     count = 0
 
@@ -282,7 +282,7 @@ def get_solution_len_minus_rotates(solution):
 
 def apply_rotations(size, step, rotations):
     """
-    Apply the "rotations" to step and return the step. This is used by
+    Apply the `rotations` to `step` and return the `step`. This is used by
     compress_solution() to remove all of the whole cube rotations from
     the solution.
     """
@@ -388,7 +388,7 @@ def apply_rotations(size, step, rotations):
 
 def compress_solution(solution):
     """
-    Remove the whole cube rotations from 'solution'
+    Remove the whole cube rotations from `solution`
     """
     result = []
     rotations = []
@@ -433,7 +433,7 @@ def compress_solution(solution):
 
 class RubiksCube333(object):
     """
-    A class for solving a 3x3x3 rubiks cube
+    A class for solving a 3x3x3 Rubiks Cube
     """
 
     def __init__(self, state, order):
@@ -469,7 +469,7 @@ class RubiksCube333(object):
 
     def rotate(self, step):
         """
-        Apply 'step' to the cube and append 'step' to our solution list
+        Apply `step` to the cube and append `step` to our solution list
         """
         new_state = [self.state[x] for x in swaps_333[step]]
         self.state = new_state
@@ -477,7 +477,7 @@ class RubiksCube333(object):
 
     def rotate_side_X_to_Y(self, x, y):
         """
-        Rotate the entire cube so that side x is on side y
+        Rotate the entire cube so that side `x` is on side `y`
         """
 
         if y == "U":
@@ -563,7 +563,7 @@ class RubiksCube333(object):
 
     def index_corner(self, f0, f1, f2):
         """
-        Set idx, idx_ic and idx_nc for a corner
+        Set idx, idx_ic and idx_nc for corner `f0/f1/f2`
         """
         ic = find_corner(self.state, f0, f1, f2)
 
@@ -578,7 +578,7 @@ class RubiksCube333(object):
 
     def index_edge(self, f0, f1):
         """
-        Set idx, idx_ie and idx_ne for an edge
+        Set idx, idx_ie and idx_ne for edge `f0/f1`
         """
         ie = find_edge(self.state, f0, f1)
 
@@ -593,7 +593,7 @@ class RubiksCube333(object):
 
     def verify_solution(self, original_state, solution):
         """
-        Put the cube back in the original state and apply the solution to verify
+        Put the cube back in the original state and apply `solution` to verify
         that the cube is indeed solved.  This should always be the case but this
         gives a nice way to catch weird bugs.
         """
@@ -612,7 +612,7 @@ class RubiksCube333(object):
 
     def solve_phase(self, phase, mtb, mtd):
         """
-        Solve a single phase per the mtb/mtd tables
+        Solve a single phase per the `mtb`/`mtd` tables
         """
         # print("phase %d has %s entries" % (phase, len(mtd)))
         sz = len(mtd) / mtb
