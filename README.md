@@ -6,6 +6,7 @@ Install
 ```
 sudo mkdir /usr/lib/micropython/rubikscubesolvermicropython/
 sudo cp rubikscubesolvermicropython/*.py /usr/lib/micropython/rubikscubesolvermicropython/
+sudo cp rubikscubesolvermicropython/*.txt /usr/lib/micropython/rubikscubesolvermicropython/
 ```
 
 Example:
