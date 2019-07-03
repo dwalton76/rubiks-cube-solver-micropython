@@ -13,7 +13,7 @@ from rubikscubesolvermicropython.movetables import (
     mtb8, mtd8,
 )
 
-log = logging.getLogger(__name__)
+# log = logging.getLogger(__name__)
 
 
 FACELET_COUNT = 54
@@ -734,9 +734,9 @@ class RubiksCube333(object):
                 min_solution_len = solution_len
                 min_solution_recolor_map = recolor_map
                 min_solution = self.solution[:]
-                log.info("(NEW MIN) rotations %s, solution len %d" % (" ".join(rotations), solution_len))
-            else:
-                log.info("rotations %s, solution len %d" % (" ".join(rotations), solution_len))
+            #    log.info("(NEW MIN) rotations %s, solution len %d" % (" ".join(rotations), solution_len))
+            #else:
+            #    log.info("rotations %s, solution len %d" % (" ".join(rotations), solution_len))
 
         self.solution = compress_solution(min_solution)
 
