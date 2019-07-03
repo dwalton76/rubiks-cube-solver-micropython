@@ -1,5 +1,5 @@
 
-import logging
+# import logging
 import sys
 from rubikscubesolvermicropython.movetables import (
     mtb0, mtd0,
