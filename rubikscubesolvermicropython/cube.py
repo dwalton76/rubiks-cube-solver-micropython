@@ -1,10 +1,4 @@
 
-# import logging
-import gc
-import sys
-
-# log = logging.getLogger(__name__)
-
 
 FACELET_COUNT = 54
 
@@ -104,6 +98,7 @@ swaps_333 = {
 
 
 def print_mem_stats(desc):
+    import gc
     print('{} free: {} allocated: {}'.format(desc, gc.mem_free(), gc.mem_alloc()))
 
 
@@ -114,6 +109,17 @@ def get_line_in_file(fh, line_width, line_index):
     """
     fh.seek(line_width * line_index)
     return fh.read(line_width).rstrip()
+
+
+def get_lines_in_file(fh, line_width, line_index, lines_to_get):
+    result = []
+    fh.seek(line_width * line_index)
+    data = fh.read(line_width * lines_to_get)
+
+    for line in data.splitlines():
+        result.append(int(line, 16))
+
+    return result
 
 
 def cube2str(cube):
@@ -613,6 +619,7 @@ class RubiksCube333(object):
         if kociemba_string != "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB":
             print("ERROR: cube should be solved but it is not solved")
             print(cube2strcolor(self.state))
+            import sys
             sys.exit(0)
 
     def solve_phase(self, phase, desc, mtb, mtd, mtd_linecount):
@@ -627,9 +634,11 @@ class RubiksCube333(object):
         # The mtd .txt files will be in that same directory
         filename = directory + mtd
 
+        # sz is how many 'mtb' long move sequenes there are
         sz = mtd_linecount / mtb
         self.idx = sz - self.idx
-        # print("phase %d %s: mtb %d, mtd %s, sz %d, idx %d" % (phase, desc, mtb, mtd, sz, self.idx))
+        mvm = (mtb * 2) - 1
+        # print("\nphase %d %s: mtb %d, mtd %s, mvm %d, sz %d, idx %d" % (phase, desc, mtb, mtd, mvm, sz, self.idx))
 
         if self.idx > 0:
 
@@ -638,24 +647,25 @@ class RubiksCube333(object):
                 line_width = len(first_line)
 
                 i = int((self.idx - 1) * mtb)
-                b = int(get_line_in_file(fh, line_width, i))
+                orig_i = i
+
+                steps = get_lines_in_file(fh, line_width, i, mvm)
+                b = steps[0]
                 i += 1
 
                 if b != 0xFF:
-                    mvm = mtb * 2 - 1
                     mv = 0
                     f0 = int(b / 3)
                     r0 = RFIX(b - (f0 * 3) + 1)
                     step = get_step_string(f0, r0)
                     self.rotate(step)
-
                     mv += 1
 
                     while mv < mvm:
                         b >>= 4
 
                         if (mv & 1) != 0:
-                            b = int(get_line_in_file(fh, line_width, i))
+                            b = steps[i - orig_i]
                             i += 1
 
                         b0 = b & 0xF
@@ -706,7 +716,6 @@ class RubiksCube333(object):
 
         original_state = self.state[:]
         original_solution = self.solution [:]
-        gc.collect()
 
         for rotations in rotations_24:
             self.state = original_state[:]
@@ -747,7 +756,6 @@ class RubiksCube333(object):
                 self.solution.append("COMMENT phase %s: %s (%d steps)" % (
                     phase, desc, (solution_len - prev_solution_len)))
                 prev_solution_len = solution_len
-                gc.collect()
 
             solution_len = get_solution_len_minus_rotates(self.solution)
 
@@ -755,9 +763,9 @@ class RubiksCube333(object):
                 min_solution_len = solution_len
                 min_solution_recolor_map = recolor_map
                 min_solution = self.solution[:]
-            #    log.info("(NEW MIN) rotations %s, solution len %d" % (" ".join(rotations), solution_len))
+                print("(NEW MIN) rotations %s, solution len %d" % (" ".join(rotations), solution_len))
             #else:
-            #    log.info("rotations %s, solution len %d" % (" ".join(rotations), solution_len))
+            #    print("rotations %s, solution len %d" % (" ".join(rotations), solution_len))
 
         self.solution = compress_solution(min_solution)
 
