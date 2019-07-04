@@ -1,4 +1,5 @@
 
+from micropython import const
 
 FACELET_COUNT = 54
 
@@ -102,10 +103,11 @@ def print_mem_stats(desc):
     print('{} free: {} allocated: {}'.format(desc, gc.mem_free(), gc.mem_alloc()))
 
 
-def get_lines_in_file(fh, line_width, line_index, lines_to_get):
+def get_lines_in_file(file_data, line_width, line_index, lines_to_get):
     result = []
-    fh.seek(line_width * line_index)
-    data = fh.read(line_width * lines_to_get).decode("utf-8")
+    start = line_width * line_index
+    end = start + (line_width * lines_to_get)
+    data = file_data[start:end]
 
     for line in data.splitlines():
         result.append(int(line, 16))
@@ -461,7 +463,58 @@ class RubiksCube333(object):
         else:
             raise Exception("Add support for order %s" % order)
 
+        self.state_backup = self.state[:]
         self.index_init_all()
+
+    def re_init(self):
+        self.solution = []
+        self.state = self.state_backup[:]
+
+    def load_tables(self):
+
+        # Get the directory where cube.py was installed...example:
+        # /usr/lib/micropython/rubikscubesolvermicropython/cube.py
+        directory = "/".join(__file__.split("/")[:-1]) + "/"
+
+        with open(directory + "mtd0.txt", "r") as fh:
+            self.mtd0 = fh.read()
+
+        with open(directory + "mtd1.txt", "r") as fh:
+            self.mtd1 = fh.read()
+
+        with open(directory + "mtd2.txt", "r") as fh:
+            self.mtd2 = fh.read()
+
+        with open(directory + "mtd3.txt", "r") as fh:
+            self.mtd3 = fh.read()
+
+        with open(directory + "mtd4.txt", "r") as fh:
+            self.mtd4 = fh.read()
+
+        with open(directory + "mtd5.txt", "r") as fh:
+            self.mtd5 = fh.read()
+
+        with open(directory + "mtd6.txt", "r") as fh:
+            self.mtd6 = fh.read()
+
+        with open(directory + "mtd7.txt", "r") as fh:
+            self.mtd7 = fh.read()
+
+        with open(directory + "mtd8.txt", "r") as fh:
+            self.mtd8 = fh.read()
+
+        # We should be able to drop in different phases/tables in the future
+        self.phases = (
+            (const(0), "two edges", (), (("D", "F"), ("D", "R")),                                     const(3), self.mtd0, const(527)),
+            (const(1), "one corner, one edge", (("D", "F", "R"),), (("F", "R"),),                     const(4), self.mtd1, const(479)),
+            (const(2), "one edge", (), (("D", "B"),),                                                 const(3), self.mtd2, const(17)),
+            (const(3), "one corner, one edge", (("D", "R", "B"),), (("R", "B"),),                     const(5), self.mtd3, const(335)),
+            (const(4), "one edge", (), (("D", "L"),),                                                 const(3), self.mtd4, const(13)),
+            (const(5), "one corner, one edge", (("D", "B", "L"),), (("B", "L"),),                     const(5), self.mtd5, const(215)),
+            (const(6), "one corner, one edge", (("D", "L", "F"),), (("L", "F"),),                     const(5), self.mtd6, const(149)),
+            (const(7), "last three corners", (("U", "R", "F"), ("U", "F", "L"), ("U", "L", "B")), (), const(7), self.mtd7, const(647)),
+            (const(8), "last three edges", (), (("U", "R"), ("U", "F"), ("U", "L")),                  const(8), self.mtd8, const(95)),
+        )
 
     def get_kociemba_string(self):
         """
@@ -469,12 +522,14 @@ class RubiksCube333(object):
         """
         return "".join([self.state[x] for x in kociemba_sequence])
 
+    @micropython.native
     def rotate(self, step):
         """
         Apply `step` to the cube and append `step` to our solution list
         """
-        new_state = [self.state[x] for x in swaps_333[step]]
-        self.state = new_state
+        ref_swaps_333 = swaps_333
+        ref_state = self.state
+        self.state = [ref_state[x] for x in ref_swaps_333[step]]
         self.solution.append(step)
 
     def rotate_side_X_to_Y(self, x, y):
@@ -613,91 +668,73 @@ class RubiksCube333(object):
             import sys
             sys.exit(0)
 
-    def solve_phase(self, phase, desc, mtb, mtd, mtd_linecount):
+    @micropython.native
+    def solve_phase(self, phase, desc, mtb, mtd, sz):
         """
         Solve a single phase per the `mtd` table
+        `sz` is how many 'mtb' long move sequenes there are in the mtd file
         """
+        ref_get_lines_in_file = get_lines_in_file
+        ref_RFIX = RFIX
+        ref_get_step_string = get_step_string
+        idx = self.idx
+        ref_rotate = self.rotate
 
-        # sz is how many 'mtb' long move sequenes there are in the mtd file
-        sz = mtd_linecount / mtb
-        self.idx = sz - self.idx
+        idx = sz - idx
 
-        if self.idx > 0:
-            # Get the directory where cube.py was installed...example:
-            # /usr/lib/micropython/rubikscubesolvermicropython/cube.py
-            directory = "/".join(__file__.split("/")[:-1]) + "/"
-
-            # The mtd .txt files will be in that same directory
-            filename = directory + mtd
-
+        if idx > 0:
+            LINE_WIDTH = const(5)
             mvm = (mtb * 2) - 1
             # print("\nphase %d %s: mtb %d, mtd %s, mvm %d, sz %d, idx %d" % (phase, desc, mtb, mtd, mvm, sz, self.idx))
 
-            LINE_WIDTH = 5
+            i = int((idx - 1) * mtb)
+            orig_i = i
 
-            with open(filename, "rb") as fh:
-                i = int((self.idx - 1) * mtb)
-                orig_i = i
+            steps = ref_get_lines_in_file(mtd, LINE_WIDTH, i, mvm)
+            b = steps[0]
+            i += 1
 
-                steps = get_lines_in_file(fh, LINE_WIDTH, i, mvm)
-                b = steps[0]
-                i += 1
+            if b != 0xFF:
+                mv = 0
+                f0 = int(b / 3)
+                r0 = ref_RFIX(b - (f0 * 3) + 1)
+                step = ref_get_step_string(f0, r0)
+                ref_rotate(step)
+                mv += 1
 
-                if b != 0xFF:
-                    mv = 0
-                    f0 = int(b / 3)
-                    r0 = RFIX(b - (f0 * 3) + 1)
-                    step = get_step_string(f0, r0)
-                    self.rotate(step)
+                while mv < mvm:
+                    b >>= 4
+
+                    if (mv & 1) != 0:
+                        b = steps[i - orig_i]
+                        i += 1
+
+                    b0 = b & 0xF
+
+                    if b0 == 0xF:
+                        break
+
+                    f1 = int(b0 / 3)
+                    r0 = ref_RFIX(b0 - (f1 * 3) + 1)
+
+                    if f1 >= f0:
+                        f1 += 1
+
+                    f0 = f1
+                    step = ref_get_step_string(f0, r0)
+                    ref_rotate(step)
+
                     mv += 1
-
-                    while mv < mvm:
-                        b >>= 4
-
-                        if (mv & 1) != 0:
-                            b = steps[i - orig_i]
-                            i += 1
-
-                        b0 = b & 0xF
-
-                        if b0 == 0xF:
-                            break
-
-                        f1 = int(b0 / 3)
-                        r0 = RFIX(b0 - (f1 * 3) + 1)
-
-                        if f1 >= f0:
-                            f1 += 1
-
-                        f0 = f1
-                        step = get_step_string(f0, r0)
-                        self.rotate(step)
-
-                        mv += 1
 
     def solve(self):
         """
         Solve the cube and return the solution
         """
-
         print("INIT CUBE:\n%s" % (cube2strcolor(self.state)))
         solution_len = len(self.solution)
         prev_solution_len = solution_len
         self.rotate_U_to_U()
         self.rotate_F_to_F()
-
-        # We should be able to drop in different phases/tables in the future
-        phases = (
-            (0, "two edges", (), (("D", "F"), ("D", "R")),                                     3, "mtd0.txt", 1581),
-            (1, "one corner, one edge", (("D", "F", "R"),), (("F", "R"),),                     4, "mtd1.txt", 1916),
-            (2, "one edge", (), (("D", "B"),),                                                 3, "mtd2.txt", 51),
-            (3, "one corner, one edge", (("D", "R", "B"),), (("R", "B"),),                     5, "mtd3.txt", 1675),
-            (4, "one edge", (), (("D", "L"),),                                                 3, "mtd4.txt", 39),
-            (5, "one corner, one edge", (("D", "B", "L"),), (("B", "L"),),                     5, "mtd5.txt", 1075),
-            (6, "one corner, one edge", (("D", "L", "F"),), (("L", "F"),),                     5, "mtd6.txt", 745),
-            (7, "last three corners", (("U", "R", "F"), ("U", "F", "L"), ("U", "L", "B")), (), 7, "mtd7.txt", 4529),
-            (8, "last three edges", (), (("U", "R"), ("U", "F"), ("U", "L")),                  8, "mtd8.txt", 760),
-        )
 
         # Try all 24 rotations, keep the one with the shortest solution
         min_solution = None
@@ -729,7 +766,7 @@ class RubiksCube333(object):
             self.recolor(recolor_map)
             self.index_init_all()
 
-            for (phase, desc, corners, edges, mtb, mtd, mtd_linecount) in phases:
+            for (phase, desc, corners, edges, mtb, mtd, sz) in self.phases:
                 self.index_init()
 
                 for corner in corners:
@@ -738,10 +775,10 @@ class RubiksCube333(object):
                 for edge in edges:
                     self.index_edge(*edge)
 
-                if phase == len(phases) - 1:
+                if phase == len(self.phases) - 1:
                     self.index_last()
 
-                self.solve_phase(phase, desc, mtb, mtd, mtd_linecount)
+                self.solve_phase(phase, desc, mtb, mtd, sz)
                 solution_len = len(self.solution)
                 self.solution.append("COMMENT phase %s: %s (%d steps)" % (
                     phase, desc, (solution_len - prev_solution_len)))
@@ -753,7 +790,7 @@ class RubiksCube333(object):
                 min_solution_len = solution_len
                 min_solution_recolor_map = recolor_map
                 min_solution = self.solution[:]
-                print("(NEW MIN) rotations %s, solution len %d" % (" ".join(rotations), solution_len))
+            #    print("(NEW MIN) rotations %s, solution len %d" % (" ".join(rotations), solution_len))
             #else:
             #    print("rotations %s, solution len %d" % (" ".join(rotations), solution_len))
 
