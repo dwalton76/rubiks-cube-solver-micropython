@@ -620,7 +620,13 @@ class RubiksCube333(object):
         Solve a single phase per the `mtb`/`mtd` tables
         """
 
-        filename = "/usr/lib/micropython/rubikscubesolvermicropython/" + mtd
+        # Get the directory where cube.py was installed...example:
+        # /usr/lib/micropython/rubikscubesolvermicropython/cube.py
+        directory = "/".join(__file__.split("/")[:-1]) + "/"
+
+        # The mtd .txt files will be in that same directory
+        filename = directory + mtd
+
         sz = mtd_linecount / mtb
         self.idx = sz - self.idx
         # print("phase %d %s: mtb %d, mtd %s, sz %d, idx %d" % (phase, desc, mtb, mtd, sz, self.idx))
@@ -703,9 +709,6 @@ class RubiksCube333(object):
         gc.collect()
 
         for rotations in rotations_24:
-            #gc.collect()
-            print_mem_stats("solving rotations %s" % " ".join(rotations))
-
             self.state = original_state[:]
             self.solution = original_solution[:]
 
@@ -733,14 +736,12 @@ class RubiksCube333(object):
                 for corner in corners:
                     self.index_corner(*corner)
 
-                # significant jump from 30 to 40
                 for edge in edges:
                     self.index_edge(*edge)
 
                 if phase == len(phases) - 1:
                     self.index_last()
 
-                # significant jump from 50 to 60
                 self.solve_phase(phase, desc, mtb, mtd, mtd_linecount)
                 solution_len = len(self.solution)
                 self.solution.append("COMMENT phase %s: %s (%d steps)" % (
@@ -757,21 +758,15 @@ class RubiksCube333(object):
             #    log.info("(NEW MIN) rotations %s, solution len %d" % (" ".join(rotations), solution_len))
             #else:
             #    log.info("rotations %s, solution len %d" % (" ".join(rotations), solution_len))
-            print("")
 
-        print_mem_stats("HERE 10")
         self.solution = compress_solution(min_solution)
-        print_mem_stats("HERE 20")
 
         print("FINAL CUBE:\n%s" % (cube2strcolor(self.state)))
         print(get_alg_cubing_net_url(self.solution))
-        print_mem_stats("HERE 30")
 
         # Remove the comments from the solution
         self.solution = [x for x in self.solution if not x.startswith("COMMENT")]
 
-        print_mem_stats("HERE 40")
         self.verify_solution(original_state, self.solution)
-        print_mem_stats("HERE 50")
 
         return self.solution

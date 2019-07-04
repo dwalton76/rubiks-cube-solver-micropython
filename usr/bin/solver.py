@@ -1,15 +1,11 @@
-from rubikscubesolvermicropython.cube import RubiksCube333, print_mem_stats
+from rubikscubesolvermicropython.cube import RubiksCube333
 
 import logging
 import sys
 
-print_mem_stats("Initial")
-
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(filename)22s %(levelname)8s: %(message)s')
 log = logging.getLogger(__name__)
-
-print_mem_stats("post logging")
 
 # Solved 3x3x3
 # UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB
@@ -23,4 +19,3 @@ else:
 cube = RubiksCube333(cube_state, 'URFDLB')
 cube.solve()
 print("\nSOLUTION (%d steps): %s\n" % (len(cube.solution), " ".join(cube.solution)))
-print_mem_stats("Final")
