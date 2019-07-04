@@ -102,19 +102,10 @@ def print_mem_stats(desc):
     print('{} free: {} allocated: {}'.format(desc, gc.mem_free(), gc.mem_alloc()))
 
 
-def get_line_in_file(fh, line_width, line_index):
-    """
-    Return the line on line number 'line_index'. This assumes every line
-    in the file is 'line_width' characters (including the newline).
-    """
-    fh.seek(line_width * line_index)
-    return fh.read(line_width).rstrip()
-
-
 def get_lines_in_file(fh, line_width, line_index, lines_to_get):
     result = []
     fh.seek(line_width * line_index)
-    data = fh.read(line_width * lines_to_get)
+    data = fh.read(line_width * lines_to_get).decode("utf-8")
 
     for line in data.splitlines():
         result.append(int(line, 16))
@@ -624,32 +615,31 @@ class RubiksCube333(object):
 
     def solve_phase(self, phase, desc, mtb, mtd, mtd_linecount):
         """
-        Solve a single phase per the `mtb`/`mtd` tables
+        Solve a single phase per the `mtd` table
         """
 
-        # Get the directory where cube.py was installed...example:
-        # /usr/lib/micropython/rubikscubesolvermicropython/cube.py
-        directory = "/".join(__file__.split("/")[:-1]) + "/"
-
-        # The mtd .txt files will be in that same directory
-        filename = directory + mtd
-
-        # sz is how many 'mtb' long move sequenes there are
+        # sz is how many 'mtb' long move sequenes there are in the mtd file
         sz = mtd_linecount / mtb
         self.idx = sz - self.idx
-        mvm = (mtb * 2) - 1
-        # print("\nphase %d %s: mtb %d, mtd %s, mvm %d, sz %d, idx %d" % (phase, desc, mtb, mtd, mvm, sz, self.idx))
 
         if self.idx > 0:
+            # Get the directory where cube.py was installed...example:
+            # /usr/lib/micropython/rubikscubesolvermicropython/cube.py
+            directory = "/".join(__file__.split("/")[:-1]) + "/"
 
-            with open(filename, "r") as fh:
-                first_line = next(fh)
-                line_width = len(first_line)
+            # The mtd .txt files will be in that same directory
+            filename = directory + mtd
 
+            mvm = (mtb * 2) - 1
+            # print("\nphase %d %s: mtb %d, mtd %s, mvm %d, sz %d, idx %d" % (phase, desc, mtb, mtd, mvm, sz, self.idx))
+
+            LINE_WIDTH = 5
+
+            with open(filename, "rb") as fh:
                 i = int((self.idx - 1) * mtb)
                 orig_i = i
 
-                steps = get_lines_in_file(fh, line_width, i, mvm)
+                steps = get_lines_in_file(fh, LINE_WIDTH, i, mvm)
                 b = steps[0]
                 i += 1
 
