@@ -17,5 +17,6 @@ else:
     cube_state = sys.argv[1]
 
 cube = RubiksCube333(cube_state, 'URFDLB')
+cube.load_tables()
 cube.solve()
 print("\nSOLUTION (%d steps): %s\n" % (len(cube.solution), " ".join(cube.solution)))

@@ -1,9 +1,26 @@
 
 from micropython import const
+import utime
 
-FACELET_COUNT = 54
+U = const(0)
+L = const(1)
+F = const(2)
+R = const(3)
+B = const(4)
+D = const(5)
 
 side2str = {
+    U : "U",
+    F : "F",
+    D : "D",
+    B : "B",
+    R : "R",
+    L : "L",
+}
+
+# This numbering looks a bit odd but this is how the sides were numbered
+# in the original NXT solver.  This should only be used in get_step_string().
+get_step_string_side2str = {
     0 : "U",
     1 : "F",
     2 : "D",
@@ -26,14 +43,6 @@ cube_layout = """
           51 52 53
 """
 
-kociemba_sequence = (
-    0, 1, 2, 3, 4, 5, 6, 7, 8, # U
-    27, 28, 29, 30, 31, 32, 33, 34, 35, # R
-    18, 19, 20, 21, 22, 23, 24, 25, 26, # F
-    45, 46, 47, 48, 49, 50, 51, 52, 53, # D
-    9, 10, 11, 12, 13, 14, 15, 16, 17, # L
-    36, 37, 38, 39, 40, 41, 42, 43, 44, # B
-)
 
 # There are 24 combinations to try in terms of which colors
 # are on side U and side F
@@ -103,6 +112,32 @@ def print_mem_stats(desc):
     print('{} free: {} allocated: {}'.format(desc, gc.mem_free(), gc.mem_alloc()))
 
 
+profile_stats_time = {
+}
+profile_stats_calls = {
+}
+
+def timed_function(f, *args, **kwargs):
+    myname = str(f).split(' ')[1]
+
+    def new_func(*args, **kwargs):
+        t = utime.ticks_us()
+        result = f(*args, **kwargs)
+        #delta = utime.ticks_diff(utime.ticks_us(), t)
+
+        if myname not in profile_stats_time:
+            profile_stats_time[myname] = 0
+            profile_stats_calls[myname] = 0
+
+        profile_stats_time[myname] += utime.ticks_diff(utime.ticks_us(), t)
+        profile_stats_calls[myname] += 1
+
+        #print('Function {} Time = {:6.3f}ms'.format(myname, delta/1000))
+        return result
+
+    return new_func
+
+@timed_function
 def get_lines_in_file(file_data, line_width, line_index, lines_to_get):
     result = []
     start = line_width * line_index
@@ -112,9 +147,10 @@ def get_lines_in_file(file_data, line_width, line_index, lines_to_get):
     for line in data.splitlines():
         result.append(int(line, 16))
 
-    return result
+    return tuple(result)
 
 
+@timed_function
 def cube2str(cube):
     """
     Return a human readable string for `cube`
@@ -157,6 +193,7 @@ def cube2str(cube):
     )
 
 
+@timed_function
 def cube2strcolor(cube):
     """
     Add color to the `cube` string
@@ -171,6 +208,7 @@ def cube2strcolor(cube):
     return cube_string
 
 
+@timed_function
 def get_alg_cubing_net_url(solution):
     """
     Return an alg.cubing.net URL for `solution`
@@ -201,11 +239,13 @@ CORNER_TUPLES = (
     (33, 47, 26), (26, 33, 47), (47, 26, 33), # DFR
 )
 
+@timed_function
 def find_corner(cube, f0, f1, f2):
     """
     Return a number from 0-23 that indicates where corner `f0/f1/f2` is located
     """
-    for (index, (corner0, corner1, corner2)) in enumerate(CORNER_TUPLES):
+    ref_CORNER_TUPLES = CORNER_TUPLES
+    for (index, (corner0, corner1, corner2)) in enumerate(ref_CORNER_TUPLES):
         if cube[corner0] == f0 and cube[corner1] == f1 and cube[corner2] == f2:
             return index
 
@@ -227,17 +267,20 @@ EDGE_TUPLES = (
     (25, 46), (46, 25), # DF
 )
 
+@timed_function
 def find_edge(cube, f0, f1):
     """
     Return a number from 0-23 that indicates where edge `f0/f1` is located
     """
-    for (index, (edge0, edge1)) in enumerate(EDGE_TUPLES):
+    ref_EDGE_TUPLES = EDGE_TUPLES
+    for (index, (edge0, edge1)) in enumerate(ref_EDGE_TUPLES):
         if cube[edge0] == f0 and cube[edge1] == f1:
             return index
 
     raise Exception("Could not find edge f0/f1 %s/%s\n%s" % (f0, f1, cube2str(cube)))
 
 
+@timed_function
 def RFIX(RR):
     """
     Normalize to range -1 to 2
@@ -245,30 +288,32 @@ def RFIX(RR):
     return ((int(RR) + 1) & 3) - 1
 
 
+@timed_function
 def get_step_string(f, r):
     """
     Give the face `f` and rotation `r`, return the string equivalent such as U, U', U2, etc
     """
     r &= 3
-    step = side2str[f]
 
     # r is 1/4 forward, 1/4 backward or 1/2 turn
     if r == 1:
-        pass
+        return get_step_string_side2str[f]
     elif r == 2:
-        step += "2"
+        return "{}2".format(get_step_string_side2str[f])
     elif r == 3:
-        step += "'"
+        return "{}'".format(get_step_string_side2str[f])
     else:
         raise Exception("rotate r '%s' is invalid" % r)
 
-    return step
 
+FULL_CUBE_ROTATES = set(("x", "x'", "x2", "y", "y'", "y2", "z", "z'", "z2"))
 
+@timed_function
 def get_solution_len_minus_rotates(solution):
     """
     Return the length of `solution` ignoring comments and whole cube rotations
     """
+    ref_FULL_CUBE_ROTATES = FULL_CUBE_ROTATES
     count = 0
 
     for step in solution:
@@ -276,7 +321,7 @@ def get_solution_len_minus_rotates(solution):
         if step.startswith("COMMENT"):
             continue
 
-        if step in ("x", "x'", "x2", "y", "y'", "y2", "z", "z'", "z2"):
+        if step in ref_FULL_CUBE_ROTATES:
             continue
 
         count += 1
@@ -284,6 +329,7 @@ def get_solution_len_minus_rotates(solution):
     return count
 
 
+@timed_function
 def apply_rotations(size, step, rotations):
     """
     Apply the `rotations` to `step` and return the `step`. This is used by
@@ -390,6 +436,7 @@ def apply_rotations(size, step, rotations):
     return step
 
 
+@timed_function
 def compress_solution(solution):
     """
     Remove the whole cube rotations from `solution`
@@ -427,7 +474,7 @@ def compress_solution(solution):
             tmp_solution.append(step)
 
     for step in tmp_solution:
-        if step.startswith("3"):
+        if step[0] == "3":
             rotations.append(apply_rotations(3, step, rotations))
         else:
             result.append(apply_rotations(3, step, rotations))
@@ -442,6 +489,8 @@ class RubiksCube333(object):
 
     def __init__(self, state, order):
         SQUARES_PER_SIDE = 9
+        self.FACELET_COUNT = SQUARES_PER_SIDE * 6
+
         self.solution = []
         self.state = []
         state = list(state)
@@ -463,13 +512,37 @@ class RubiksCube333(object):
         else:
             raise Exception("Add support for order %s" % order)
 
-        self.state_backup = self.state[:]
+        for x in range(self.FACELET_COUNT):
+            if self.state[x] == "U":
+                self.state[x] = 0
+            elif self.state[x] == "L":
+                self.state[x] = 1
+            elif self.state[x] == "F":
+                self.state[x] = 2
+            elif self.state[x] == "R":
+                self.state[x] = 3
+            elif self.state[x] == "B":
+                self.state[x] = 4
+            elif self.state[x] == "D":
+                self.state[x] = 5
+
+        self.state = bytearray(self.state)
+        self.state_scratchpad = bytearray(self.FACELET_COUNT)
+        self.state_backup = bytearray(self.FACELET_COUNT)
+
+        self.state_scratchpad[:] = self.state
+        self.state_backup[:] = self.state
+
+        #self.state_scratchpad = self.state[:]
+        #self.state_backup = self.state[:]
         self.index_init_all()
 
+    @timed_function
     def re_init(self):
         self.solution = []
         self.state = self.state_backup[:]
 
+    @timed_function
     def load_tables(self):
 
         # Get the directory where cube.py was installed...example:
@@ -505,33 +578,114 @@ class RubiksCube333(object):
 
         # We should be able to drop in different phases/tables in the future
         self.phases = (
-            (const(0), "two edges", (), (("D", "F"), ("D", "R")),                                     const(3), self.mtd0, const(527)),
-            (const(1), "one corner, one edge", (("D", "F", "R"),), (("F", "R"),),                     const(4), self.mtd1, const(479)),
-            (const(2), "one edge", (), (("D", "B"),),                                                 const(3), self.mtd2, const(17)),
-            (const(3), "one corner, one edge", (("D", "R", "B"),), (("R", "B"),),                     const(5), self.mtd3, const(335)),
-            (const(4), "one edge", (), (("D", "L"),),                                                 const(3), self.mtd4, const(13)),
-            (const(5), "one corner, one edge", (("D", "B", "L"),), (("B", "L"),),                     const(5), self.mtd5, const(215)),
-            (const(6), "one corner, one edge", (("D", "L", "F"),), (("L", "F"),),                     const(5), self.mtd6, const(149)),
-            (const(7), "last three corners", (("U", "R", "F"), ("U", "F", "L"), ("U", "L", "B")), (), const(7), self.mtd7, const(647)),
-            (const(8), "last three edges", (), (("U", "R"), ("U", "F"), ("U", "L")),                  const(8), self.mtd8, const(95)),
+            (const(0), "two edges", (), ((D, F), (D, R)),                                   const(3), self.mtd0, const(527)),
+            (const(1), "one corner, one edge", ((D, F, R),), ((F, R),),                     const(4), self.mtd1, const(479)),
+            (const(2), "one edge", (), ((D, B),),                                           const(3), self.mtd2, const(17)),
+            (const(3), "one corner, one edge", ((D, R, B),), ((R, B),),                     const(5), self.mtd3, const(335)),
+            (const(4), "one edge", (), ((D, L),),                                           const(3), self.mtd4, const(13)),
+            (const(5), "one corner, one edge", ((D, B, L),), ((B, L),),                     const(5), self.mtd5, const(215)),
+            (const(6), "one corner, one edge", ((D, L, F),), ((L, F),),                     const(5), self.mtd6, const(149)),
+            (const(7), "last three corners", ((U, R, F), (U, F, L), (U, L, B)), (),         const(7), self.mtd7, const(647)),
+            (const(8), "last three edges", (), ((U, R), (U, F), (U, L)),                    const(8), self.mtd8, const(95)),
         )
 
+    @timed_function
     def get_kociemba_string(self):
         """
         Return the cube state as a kociemba string
         """
-        return "".join([self.state[x] for x in kociemba_sequence])
+        kociemba_sequence = (
+            0, 1, 2, 3, 4, 5, 6, 7, 8, # U
+            27, 28, 29, 30, 31, 32, 33, 34, 35, # R
+            18, 19, 20, 21, 22, 23, 24, 25, 26, # F
+            45, 46, 47, 48, 49, 50, 51, 52, 53, # D
+            9, 10, 11, 12, 13, 14, 15, 16, 17, # L
+            36, 37, 38, 39, 40, 41, 42, 43, 44, # B
+        )
+        result = []
+        for x in kociemba_sequence:
+            result.append(side2str[self.state[x]])
+        return "".join(result)
 
-    @micropython.native
+    @timed_function
     def rotate(self, step):
         """
         Apply `step` to the cube and append `step` to our solution list
         """
         ref_swaps_333 = swaps_333
         ref_state = self.state
-        self.state = [ref_state[x] for x in ref_swaps_333[step]]
+        ref_state_scratchpad = self.state_scratchpad
+
+        # On a laptop the following list comp is the fastest way to do the rotate. This involves
+        # allocating memory for the new list everytime though.  That malloc is about 600x slower
+        # on Spike than it is on my laptop.
+        #
+        # self.state = [ref_state[x] for x in ref_swaps_333[step]]
+
+        # dwalton
+        # So what we do instead is use a scratchpad bytearray to do the rotate without
+        # any mallocs
+        for (i, x) in enumerate(ref_swaps_333[step]):
+            ref_state_scratchpad[i] = ref_state[x]
+
+        ref_state[0] = ref_state_scratchpad[0]
+        ref_state[1] = ref_state_scratchpad[1]
+        ref_state[2] = ref_state_scratchpad[2]
+        ref_state[3] = ref_state_scratchpad[3]
+        ref_state[4] = ref_state_scratchpad[4]
+        ref_state[5] = ref_state_scratchpad[5]
+        ref_state[6] = ref_state_scratchpad[6]
+        ref_state[7] = ref_state_scratchpad[7]
+        ref_state[8] = ref_state_scratchpad[8]
+        ref_state[9] = ref_state_scratchpad[9]
+        ref_state[10] = ref_state_scratchpad[10]
+        ref_state[11] = ref_state_scratchpad[11]
+        ref_state[12] = ref_state_scratchpad[12]
+        ref_state[13] = ref_state_scratchpad[13]
+        ref_state[14] = ref_state_scratchpad[14]
+        ref_state[15] = ref_state_scratchpad[15]
+        ref_state[16] = ref_state_scratchpad[16]
+        ref_state[17] = ref_state_scratchpad[17]
+        ref_state[18] = ref_state_scratchpad[18]
+        ref_state[19] = ref_state_scratchpad[19]
+        ref_state[20] = ref_state_scratchpad[20]
+        ref_state[21] = ref_state_scratchpad[21]
+        ref_state[22] = ref_state_scratchpad[22]
+        ref_state[23] = ref_state_scratchpad[23]
+        ref_state[24] = ref_state_scratchpad[24]
+        ref_state[25] = ref_state_scratchpad[25]
+        ref_state[26] = ref_state_scratchpad[26]
+        ref_state[27] = ref_state_scratchpad[27]
+        ref_state[28] = ref_state_scratchpad[28]
+        ref_state[29] = ref_state_scratchpad[29]
+        ref_state[30] = ref_state_scratchpad[30]
+        ref_state[31] = ref_state_scratchpad[31]
+        ref_state[32] = ref_state_scratchpad[32]
+        ref_state[33] = ref_state_scratchpad[33]
+        ref_state[34] = ref_state_scratchpad[34]
+        ref_state[35] = ref_state_scratchpad[35]
+        ref_state[36] = ref_state_scratchpad[36]
+        ref_state[37] = ref_state_scratchpad[37]
+        ref_state[38] = ref_state_scratchpad[38]
+        ref_state[39] = ref_state_scratchpad[39]
+        ref_state[40] = ref_state_scratchpad[40]
+        ref_state[41] = ref_state_scratchpad[41]
+        ref_state[42] = ref_state_scratchpad[42]
+        ref_state[43] = ref_state_scratchpad[43]
+        ref_state[44] = ref_state_scratchpad[44]
+        ref_state[45] = ref_state_scratchpad[45]
+        ref_state[46] = ref_state_scratchpad[46]
+        ref_state[47] = ref_state_scratchpad[47]
+        ref_state[48] = ref_state_scratchpad[48]
+        ref_state[49] = ref_state_scratchpad[49]
+        ref_state[50] = ref_state_scratchpad[50]
+        ref_state[51] = ref_state_scratchpad[51]
+        ref_state[52] = ref_state_scratchpad[52]
+        ref_state[53] = ref_state_scratchpad[53]
+
         self.solution.append(step)
 
+    @timed_function
     def rotate_side_X_to_Y(self, x, y):
         """
         Rotate the entire cube so that side `x` is on side `y`
@@ -571,27 +725,31 @@ class RubiksCube333(object):
             else:
                 self.rotate("y")
 
+    @timed_function
     def rotate_U_to_U(self):
         """
         Rotate side U to the top
         """
-        self.rotate_side_X_to_Y("U", "U")
+        self.rotate_side_X_to_Y(U, "U")
 
+    @timed_function
     def rotate_F_to_F(self):
         """
         Rotate side F to the front
         """
-        self.rotate_side_X_to_Y("F", "F")
+        self.rotate_side_X_to_Y(F, "F")
 
+    @timed_function
     def recolor(self, recolor_map):
         """
         Recolor the squares of the cube per `recolor_map`
         """
-        for x in range(FACELET_COUNT):
-            x_color = self.state[x]
-            x_new_color = recolor_map[x_color]
-            self.state[x] = x_new_color
+        ref_state = self.state
+        r = range(self.FACELET_COUNT)
+        for x in r:
+            ref_state[x] = recolor_map[ref_state[x]]
 
+    @timed_function
     def index_init_all(self):
         """
         Initialize all indexes. This is called at the start of the solve for a cube.
@@ -604,6 +762,7 @@ class RubiksCube333(object):
         self.idx_ic = 24
         self.idx_ie = 24
 
+    @timed_function
     def index_init(self):
         """
         Initialize indexes. This is called at the start of each phase for solving a cube.
@@ -612,42 +771,56 @@ class RubiksCube333(object):
         self.idx_ne = 0
         self.idx = 0
 
+    @timed_function
     def index_last(self):
         """
         Initialize indexes for the last phase
         """
         self.idx = ((self.idx >> 2) <<1 ) | (self.idx & 1);
 
+    @timed_function
     def index_corner(self, f0, f1, f2):
         """
         Set idx, idx_ic and idx_nc for corner `f0/f1/f2`
         """
         ic = find_corner(self.state, f0, f1, f2)
+        ref_idx_ic = self.idx_ic
+        ref_idx_nc = self.idx_nc
+        ref_idx_idx = self.idx_idx
+        ref_idx = self.idx
+        r = range(ref_idx_nc)
 
-        for i in range(self.idx_nc):
-            if ic > self.idx_idx[i]:
+        for i in r:
+            if ic > ref_idx_idx[i]:
                 ic -= 3
 
-        self.idx = (self.idx * self.idx_ic) + ic
-        self.idx_idx[self.idx_nc] = ic
+        self.idx = (ref_idx * ref_idx_ic) + ic
+        self.idx_idx[ref_idx_nc] = ic
         self.idx_nc += 1
         self.idx_ic -= 3
 
+    @timed_function
     def index_edge(self, f0, f1):
         """
         Set idx, idx_ie and idx_ne for edge `f0/f1`
         """
         ie = find_edge(self.state, f0, f1)
+        ref_idx_ie = self.idx_ie
+        ref_idx_ne = self.idx_ne
+        ref_idx_idx = self.idx_idx
+        ref_idx = self.idx
+        r = range(ref_idx_ne)
 
-        for i in range(self.idx_ne):
-            if ie > self.idx_idx[i]:
+        for i in r:
+            if ie > ref_idx_idx[i]:
                 ie -= 2
 
-        self.idx = (self.idx * self.idx_ie) + ie
-        self.idx_idx[self.idx_ne] = ie
+        self.idx = (ref_idx * ref_idx_ie) + ie
+        self.idx_idx[ref_idx_ne] = ie
         self.idx_ne += 1
         self.idx_ie -= 2
 
+    @timed_function
     def verify_solution(self, original_state, solution):
         """
         Put the cube back in the original state and apply `solution` to verify
@@ -663,12 +836,12 @@ class RubiksCube333(object):
         kociemba_string = self.get_kociemba_string()
 
         if kociemba_string != "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB":
-            print("ERROR: cube should be solved but it is not solved")
+            print("ERROR: cube should be solved but it is not solved, %s" % kociemba_string)
             print(cube2strcolor(self.state))
             import sys
             sys.exit(0)
 
-    @micropython.native
+    @timed_function
     def solve_phase(self, phase, desc, mtb, mtd, sz):
         """
         Solve a single phase per the `mtd` table
@@ -677,10 +850,9 @@ class RubiksCube333(object):
         ref_get_lines_in_file = get_lines_in_file
         ref_RFIX = RFIX
         ref_get_step_string = get_step_string
-        idx = self.idx
         ref_rotate = self.rotate
-
-        idx = sz - idx
+        self.idx = sz - self.idx
+        idx = self.idx
 
         if idx > 0:
             LINE_WIDTH = const(5)
@@ -723,14 +895,14 @@ class RubiksCube333(object):
                     f0 = f1
                     step = ref_get_step_string(f0, r0)
                     ref_rotate(step)
-
                     mv += 1
 
+    @timed_function
     def solve(self):
         """
         Solve the cube and return the solution
         """
-        print("INIT CUBE:\n%s" % (cube2strcolor(self.state)))
+        #print("INIT CUBE:\n%s" % (cube2strcolor(self.state)))
         solution_len = len(self.solution)
         prev_solution_len = solution_len
         self.rotate_U_to_U()
@@ -744,41 +916,54 @@ class RubiksCube333(object):
         original_state = self.state[:]
         original_solution = self.solution [:]
 
-        for rotations in rotations_24:
+        ref_rotate = self.rotate
+        ref_recolor = self.recolor
+        ref_phases = self.phases
+        ref_index_init_all = self.index_init_all
+        ref_index_init = self.index_init
+        ref_index_corner = self.index_corner
+        ref_index_edge = self.index_edge
+        ref_index_last = self.index_last
+        ref_solve_phase = self.solve_phase
+        ref_rotations_24 = rotations_24
+        last_phase = const(8)
+
+        for rotations in ref_rotations_24:
             self.state = original_state[:]
             self.solution = original_solution[:]
 
             for step in rotations:
-                self.rotate(step)
+                ref_rotate(step)
 
             solution_len = len(self.solution)
             prev_solution_len = solution_len
+            ref_state = self.state
 
             recolor_map = {
-                self.state[4] : "U",
-                self.state[13] : "L",
-                self.state[22] : "F",
-                self.state[31] : "R",
-                self.state[40] : "B",
-                self.state[49] : "D",
+                ref_state[4] : U,
+                ref_state[13] : L,
+                ref_state[22] : F,
+                ref_state[31] : R,
+                ref_state[40] : B,
+                ref_state[49] : D,
             }
 
-            self.recolor(recolor_map)
-            self.index_init_all()
+            ref_recolor(recolor_map)
+            ref_index_init_all()
 
-            for (phase, desc, corners, edges, mtb, mtd, sz) in self.phases:
-                self.index_init()
+            for (phase, desc, corners, edges, mtb, mtd, sz) in ref_phases:
+                ref_index_init()
 
                 for corner in corners:
-                    self.index_corner(*corner)
+                    ref_index_corner(*corner)
 
                 for edge in edges:
-                    self.index_edge(*edge)
+                    ref_index_edge(*edge)
 
-                if phase == len(self.phases) - 1:
-                    self.index_last()
+                if phase == last_phase:
+                    ref_index_last()
 
-                self.solve_phase(phase, desc, mtb, mtd, sz)
+                ref_solve_phase(phase, desc, mtb, mtd, sz)
                 solution_len = len(self.solution)
                 self.solution.append("COMMENT phase %s: %s (%d steps)" % (
                     phase, desc, (solution_len - prev_solution_len)))
@@ -796,8 +981,8 @@ class RubiksCube333(object):
 
         self.solution = compress_solution(min_solution)
 
-        print("FINAL CUBE:\n%s" % (cube2strcolor(self.state)))
-        print(get_alg_cubing_net_url(self.solution))
+        #print("FINAL CUBE:\n%s" % (cube2strcolor(self.state)))
+        #print(get_alg_cubing_net_url(self.solution))
 
         # Remove the comments from the solution
         self.solution = [x for x in self.solution if not x.startswith("COMMENT")]
@@ -805,3 +990,9 @@ class RubiksCube333(object):
         self.verify_solution(original_state, self.solution)
 
         return self.solution
+
+    def print_profile_data(self):
+        print("                     function      calls        time")
+        print("==============================  ========    ========")
+        for function in profile_stats_calls.keys():
+            print("{:>30}  {:>8}  {:>8}ms".format(function, profile_stats_calls[function], profile_stats_time[function] / 1000))
