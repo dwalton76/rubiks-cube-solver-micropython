@@ -135,8 +135,10 @@ def timed_function(f, *args, **kwargs):
 
     return new_func
 
+
 @timed_function
 def get_lines_in_file(file_data, line_width, line_index, lines_to_get):
+    """
     result = []
     start = line_width * line_index
     end = start + (line_width * lines_to_get)
@@ -145,7 +147,9 @@ def get_lines_in_file(file_data, line_width, line_index, lines_to_get):
     for line in data.splitlines():
         result.append(int(line, 16))
 
-    return tuple(result)
+    return result
+    """
+    return [int(x, 16) for x in file_data[line_width * line_index : (line_width * line_index) + (line_width * lines_to_get)].splitlines()]
 
 
 @timed_function
@@ -227,58 +231,33 @@ def get_alg_cubing_net_url(solution):
 
 
 CORNER_TUPLES = (
-    (29, 2, 36), (36, 29, 2), (2, 36, 29), # UBR
-    (38, 0, 9), (9, 38, 0), (0, 9, 38), # ULB
-    (11, 6, 18), (18, 11, 6), (6, 18, 11), # UFL
-    (20, 8, 27), (27, 20, 8), (8, 27, 20), # URF
-    (24, 45, 17), (17, 24, 45), (45, 17, 24), # DLF
-    (15, 51, 44), (44, 15, 51), (51, 44, 15), # DBL
-    (42, 53, 35), (35, 42, 53), (53, 35, 42), # DRB
-    (33, 47, 26), (26, 33, 47), (47, 26, 33), # DFR
+    (0, 29, 2, 36), (1, 36, 29, 2), (2, 2, 36, 29), # UBR
+    (3, 38, 0, 9), (4, 9, 38, 0), (5, 0, 9, 38), # ULB
+    (6, 11, 6, 18), (7, 18, 11, 6), (8, 6, 18, 11), # UFL
+    (9, 20, 8, 27), (10, 27, 20, 8), (11, 8, 27, 20), # URF
+    (12, 24, 45, 17), (13, 17, 24, 45), (14, 45, 17, 24), # DLF
+    (15, 15, 51, 44), (16, 44, 15, 51), (17, 51, 44, 15), # DBL
+    (18, 42, 53, 35), (19, 35, 42, 53), (20, 53, 35, 42), # DRB
+    (21, 33, 47, 26), (22, 26, 33, 47), (23, 47, 26, 33), # DFR
 )
-
-@timed_function
-def find_corner(cube, f0, f1, f2):
-    """
-    Return a number from 0-23 that indicates where corner `f0/f1/f2` is located
-    """
-    ref_CORNER_TUPLES = CORNER_TUPLES
-    for (index, (corner0, corner1, corner2)) in enumerate(ref_CORNER_TUPLES):
-        if cube[corner0] == f0 and cube[corner1] == f1 and cube[corner2] == f2:
-            return index
-
-    raise Exception("Could not find corner f0/f1/f2 %s/%s/%s in\n%s\n" % (f0, f1, f2, cube2str(cube)))
 
 
 EDGE_TUPLES = (
-    (37, 1), (1, 37), # UB
-    (10, 3), (3, 10), # UL
-    (19, 7), (7, 19), # UF
-    (28, 5), (5, 28), # UR
-    (21, 14), (14, 21), # LF
-    (12, 41), (41, 12), # BL
-    (16, 48), (48, 16), # DL
-    (39, 32), (32, 39), # RB
-    (43, 52), (52, 43), # DB
-    (30, 23), (23, 30), # FR
-    (34, 50), (50, 34), # DR
-    (25, 46), (46, 25), # DF
+    (0, 37, 1), (1, 1, 37), # UB
+    (2, 10, 3), (3, 3, 10), # UL
+    (4, 19, 7), (5, 7, 19), # UF
+    (6, 28, 5), (7, 5, 28), # UR
+    (8, 21, 14), (9, 14, 21), # LF
+    (10, 12, 41), (11, 41, 12), # BL
+    (12, 16, 48), (13, 48, 16), # DL
+    (14, 39, 32), (15, 32, 39), # RB
+    (16, 43, 52), (17, 52, 43), # DB
+    (18, 30, 23), (19, 23, 30), # FR
+    (20, 34, 50), (21, 50, 34), # DR
+    (22, 25, 46), (23, 46, 25), # DF
 )
 
-@timed_function
-def find_edge(cube, f0, f1):
-    """
-    Return a number from 0-23 that indicates where edge `f0/f1` is located
-    """
-    ref_EDGE_TUPLES = EDGE_TUPLES
-    for (index, (edge0, edge1)) in enumerate(ref_EDGE_TUPLES):
-        if cube[edge0] == f0 and cube[edge1] == f1:
-            return index
 
-    raise Exception("Could not find edge f0/f1 %s/%s\n%s" % (f0, f1, cube2str(cube)))
-
-
-@timed_function
 def RFIX(RR):
     """
     Normalize to range -1 to 2
@@ -576,15 +555,15 @@ class RubiksCube333(object):
 
         # We should be able to drop in different phases/tables in the future
         self.phases = (
-            (const(0), "two edges", (), ((D, F), (D, R)),                                   const(3), self.mtd0, const(527)),
-            (const(1), "one corner, one edge", ((D, F, R),), ((F, R),),                     const(4), self.mtd1, const(479)),
-            (const(2), "one edge", (), ((D, B),),                                           const(3), self.mtd2, const(17)),
-            (const(3), "one corner, one edge", ((D, R, B),), ((R, B),),                     const(5), self.mtd3, const(335)),
-            (const(4), "one edge", (), ((D, L),),                                           const(3), self.mtd4, const(13)),
-            (const(5), "one corner, one edge", ((D, B, L),), ((B, L),),                     const(5), self.mtd5, const(215)),
-            (const(6), "one corner, one edge", ((D, L, F),), ((L, F),),                     const(5), self.mtd6, const(149)),
-            (const(7), "last three corners", ((U, R, F), (U, F, L), (U, L, B)), (),         const(7), self.mtd7, const(647)),
-            (const(8), "last three edges", (), ((U, R), (U, F), (U, L)),                    const(8), self.mtd8, const(95)),
+            (const(0), "two edges", (), ((D, F), (D, R)),                           const(3), self.mtd0, const(527), const(5)),
+            (const(1), "one corner, one edge", ((D, F, R),), ((F, R),),             const(4), self.mtd1, const(479), const(7)),
+            (const(2), "one edge", (), ((D, B),),                                   const(3), self.mtd2, const(17),  const(5)),
+            (const(3), "one corner, one edge", ((D, R, B),), ((R, B),),             const(5), self.mtd3, const(335), const(9)),
+            (const(4), "one edge", (), ((D, L),),                                   const(3), self.mtd4, const(13),  const(5)),
+            (const(5), "one corner, one edge", ((D, B, L),), ((B, L),),             const(5), self.mtd5, const(215), const(9)),
+            (const(6), "one corner, one edge", ((D, L, F),), ((L, F),),             const(5), self.mtd6, const(149), const(9)),
+            (const(7), "last three corners", ((U, R, F), (U, F, L), (U, L, B)), (), const(7), self.mtd7, const(647), const(13)),
+            (const(8), "last three edges", (), ((U, R), (U, F), (U, L)),            const(8), self.mtd8, const(95),  const(15)),
         )
 
     @timed_function
@@ -722,7 +701,15 @@ class RubiksCube333(object):
         """
         Set idx, idx_ic and idx_nc for corner `f0/f1/f2`
         """
-        ic = find_corner(self.state, f0, f1, f2)
+        ref_CORNER_TUPLES = CORNER_TUPLES
+        ref_state = self.state
+
+        for (ic, corner0, corner1, corner2) in ref_CORNER_TUPLES:
+            if ref_state[corner0] == f0 and ref_state[corner1] == f1 and ref_state[corner2] == f2:
+                break
+        else:
+            raise Exception("Could not find corner f0/f1/f2 %s/%s/%s in\n%s\n" % (f0, f1, f2, cube2str(self.state)))
+
         ref_idx_ic = self.idx_ic
         ref_idx_nc = self.idx_nc
         ref_idx_idx = self.idx_idx
@@ -743,7 +730,15 @@ class RubiksCube333(object):
         """
         Set idx, idx_ie and idx_ne for edge `f0/f1`
         """
-        ie = find_edge(self.state, f0, f1)
+        ref_EDGE_TUPLES = EDGE_TUPLES
+        ref_state = self.state
+
+        for (ie, edge0, edge1) in ref_EDGE_TUPLES:
+            if ref_state[edge0] == f0 and ref_state[edge1] == f1:
+                break
+        else:
+            raise Exception("Could not find edge f0/f1 %s/%s\n%s" % (f0, f1, cube2str(ref_state)))
+
         ref_idx_ie = self.idx_ie
         ref_idx_ne = self.idx_ne
         ref_idx_idx = self.idx_idx
@@ -781,24 +776,29 @@ class RubiksCube333(object):
             sys.exit(0)
 
     @timed_function
-    def solve_phase(self, phase, desc, mtb, mtd, sz):
+    def solve_phase(self, phase, desc, mtb, mtd, sz, mvm):
         """
         Solve a single phase per the `mtd` table
         `sz` is how many 'mtb' long move sequenes there are in the mtd file
         """
-        ref_get_lines_in_file = get_lines_in_file
-        ref_RFIX = RFIX
-        ref_get_step_string = get_step_string
-        ref_rotate = self.rotate
         self.idx = sz - self.idx
         idx = self.idx
 
         if idx > 0:
+            ref_get_lines_in_file = get_lines_in_file
+            ref_get_step_string_side2str = get_step_string_side2str
+            # ref_RFIX = RFIX
+            # ref_get_step_string = get_step_string
+            #ref_rotate = self.rotate
+            ref_state = self.state
+            ref_state_scratchpad = self.state_scratchpad
+            ref_solution = self.solution
+
             LINE_WIDTH = const(5)
-            mvm = (mtb * 2) - 1
+            #mvm = (mtb * 2) - 1
             # print("\nphase %d %s: mtb %d, mtd %s, mvm %d, sz %d, idx %d" % (phase, desc, mtb, mtd, mvm, sz, self.idx))
 
-            i = int((idx - 1) * mtb)
+            i = (idx - 1) * mtb
             orig_i = i
 
             steps = ref_get_lines_in_file(mtd, LINE_WIDTH, i, mvm)
@@ -808,9 +808,31 @@ class RubiksCube333(object):
             if b != 0xFF:
                 mv = 0
                 f0 = int(b / 3)
-                r0 = ref_RFIX(b - (f0 * 3) + 1)
-                step = ref_get_step_string(f0, r0)
-                ref_rotate(step)
+
+                # unrolled this to avoid a function call
+                # r0 = ref_RFIX(b - (f0 * 3) + 1)
+                r0 = ((b - (f0 * 3) + 2) & 3) - 1
+
+                # unrolled this to avoid a function call
+                # step = ref_get_step_string(f0, r0)
+                r0 &= 3
+
+                # r is 1/4 forward, 1/4 backward or 1/2 turn
+                if r0 == 1:
+                    step = get_step_string_side2str[f0]
+                elif r0 == 2:
+                    step = "{}2".format(get_step_string_side2str[f0])
+                elif r0 == 3:
+                    step = "{}'".format(get_step_string_side2str[f0])
+                else:
+                    raise Exception("rotate r0 '%s' is invalid" % r0)
+
+                # unrolled this to avoid a function call
+                #ref_rotate(step)
+                rotate_function = rotate_map.get(step)
+                rotate_function(ref_state, ref_state_scratchpad)
+                ref_solution.append(step)
+
                 mv += 1
 
                 while mv < mvm:
@@ -826,14 +848,35 @@ class RubiksCube333(object):
                         break
 
                     f1 = int(b0 / 3)
-                    r0 = ref_RFIX(b0 - (f1 * 3) + 1)
+
+                    # unrolled this to avoid a function call
+                    # r0 = ref_RFIX(b0 - (f1 * 3) + 1)
+                    r0 = ((b0 - (f1 * 3) + 2) & 3) - 1
 
                     if f1 >= f0:
                         f1 += 1
 
                     f0 = f1
-                    step = ref_get_step_string(f0, r0)
-                    ref_rotate(step)
+
+                    # unrolled this to avoid a function call
+                    #step = ref_get_step_string(f0, r0)
+                    r0 &= 3
+
+                    # r is 1/4 forward, 1/4 backward or 1/2 turn
+                    if r0 == 1:
+                        step = get_step_string_side2str[f0]
+                    elif r0 == 2:
+                        step = "{}2".format(get_step_string_side2str[f0])
+                    elif r0 == 3:
+                        step = "{}'".format(get_step_string_side2str[f0])
+                    else:
+                        raise Exception("rotate r0 '%s' is invalid" % r0)
+
+                    # unrolled this to avoid a function call
+                    #ref_rotate(step)
+                    rotate_function = rotate_map.get(step)
+                    rotate_function(ref_state, ref_state_scratchpad)
+                    ref_solution.append(step)
                     mv += 1
 
     @timed_function
@@ -890,7 +933,7 @@ class RubiksCube333(object):
             ref_recolor(recolor_map)
             ref_index_init_all()
 
-            for (phase, desc, corners, edges, mtb, mtd, sz) in ref_phases:
+            for (phase, desc, corners, edges, mtb, mtd, sz, mvm) in ref_phases:
                 ref_index_init()
 
                 for corner in corners:
@@ -902,7 +945,7 @@ class RubiksCube333(object):
                 if phase == last_phase:
                     ref_index_last()
 
-                ref_solve_phase(phase, desc, mtb, mtd, sz)
+                ref_solve_phase(phase, desc, mtb, mtd, sz, mvm)
                 solution_len = len(self.solution)
                 self.solution.append("COMMENT phase %s: %s (%d steps)" % (
                     phase, desc, (solution_len - prev_solution_len)))
@@ -931,7 +974,7 @@ class RubiksCube333(object):
         return self.solution
 
     def print_profile_data(self):
-        print("                     function      calls        time")
-        print("==============================  ========    ========")
+        print("                     function      calls  time(ms)")
+        print("==============================  ========  ========")
         for function in profile_stats_calls.keys():
-            print("{:>30}  {:>8}  {:>8}ms".format(function, profile_stats_calls[function], profile_stats_time[function] / 1000))
+            print("{:>30}  {:>8}  {:>8.2f}".format(function, profile_stats_calls[function], profile_stats_time[function] / 1000))
