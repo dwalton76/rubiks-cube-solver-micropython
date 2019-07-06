@@ -110,10 +110,8 @@ def print_mem_stats(desc):
     print('{} free: {} allocated: {}'.format(desc, gc.mem_free(), gc.mem_alloc()))
 
 
-profile_stats_time = {
-}
-profile_stats_calls = {
-}
+profile_stats_time = {}
+profile_stats_calls = {}
 
 def timed_function(f, *args, **kwargs):
     myname = str(f).split(' ')[1]
@@ -121,7 +119,6 @@ def timed_function(f, *args, **kwargs):
     def new_func(*args, **kwargs):
         t = utime.ticks_us()
         result = f(*args, **kwargs)
-        #delta = utime.ticks_diff(utime.ticks_us(), t)
 
         if myname not in profile_stats_time:
             profile_stats_time[myname] = 0
@@ -130,7 +127,6 @@ def timed_function(f, *args, **kwargs):
         profile_stats_time[myname] += utime.ticks_diff(utime.ticks_us(), t)
         profile_stats_calls[myname] += 1
 
-        #print('Function {} Time = {:6.3f}ms'.format(myname, delta/1000))
         return result
 
     return new_func
@@ -888,39 +884,26 @@ class RubiksCube333(object):
                     ref_solution.append(step)
                     mv += 1
 
-    # @timed_function
-    def solve(self):
-        """
-        Solve the cube and return the solution
-        """
-        print("INIT CUBE:\n%s" % (cube2strcolor(self.state)))
-        solution_len = len(self.solution)
-        prev_solution_len = solution_len
-        self.rotate_U_to_U()
-        self.rotate_F_to_F()
-
-        # Try all 24 rotations, keep the one with the shortest solution
-        min_solution = None
-        min_solution_len = 999
-        min_solution_recolor_map = None
-
-        original_state = self.state[:]
-        original_solution = self.solution [:]
-
+    def _solve(self, original_state, original_solution, rotations_to_try, phases_to_solve):
         ref_rotate = self.rotate
         ref_recolor = self.recolor
         ref_phases = self.phases
         ref_index_init_all = self.index_init_all
-        ref_index_init = self.index_init
         ref_index_corner = self.index_corner
         ref_index_edge = self.index_edge
         ref_index_last = self.index_last
         ref_solve_phase = self.solve_phase
         ref_rotations_24 = rotations_24
-        last_phase = const(8)
-        phase_count = const(9)
 
-        for (rotation_count, rotations) in ref_rotations_24:
+        min_solution = None
+        min_solution_len = 999
+        min_rotations = None
+        min_rotation_count = None
+
+        last_phase = const(8)
+
+        # Try all 'rotations_to_try', find the one with the shortest solution
+        for (rotation_count, rotations) in rotations_to_try:
             self.state = original_state[:]
             self.solution = original_solution[:]
 
@@ -943,7 +926,7 @@ class RubiksCube333(object):
             ref_recolor(recolor_map)
             ref_index_init_all()
 
-            for (phase, desc, corners, edges, mtb, mtd, sz, mvm) in ref_phases:
+            for (phase, desc, corners, edges, mtb, mtd, sz, mvm) in ref_phases[0:phases_to_solve]:
 
                 # unrolled this to avoid a function call
                 # ref_index_init()
@@ -966,18 +949,38 @@ class RubiksCube333(object):
                     phase, desc, (solution_len - prev_solution_len)))
                 prev_solution_len = solution_len
 
-            #solution_len = get_solution_len_minus_rotates(self.solution)
             # There will be one COMMENT per phase
             solution_len = len(self.solution)
-            solution_len -= rotation_count + phase_count
+            solution_len -= rotation_count + phases_to_solve
 
             if solution_len < min_solution_len:
                 min_solution_len = solution_len
-                min_solution_recolor_map = recolor_map
                 min_solution = self.solution[:]
+                min_rotations = rotations
+                min_rotation_count = rotation_count
                 print("(NEW MIN) rotations %s, solution len %d" % (" ".join(rotations), solution_len))
             else:
                 print("rotations %s, solution len %d" % (" ".join(rotations), solution_len))
+
+        return ((min_rotation_count, min_rotations), min_solution)
+
+    # @timed_function
+    def solve(self):
+        """
+        Solve the cube and return the solution
+        """
+        print("INIT CUBE:\n%s" % (cube2strcolor(self.state)))
+        self.rotate_U_to_U()
+        self.rotate_F_to_F()
+
+        original_state = self.state[:]
+        original_solution = self.solution [:]
+
+        # Find the rotation that has the lowest move count for the first 3 phases
+        (best_rotation, min_solution) = self._solve(original_state, original_solution, rotations_24, 3)
+
+        # Use that rotation to solve the entire cube
+        (_, min_solution) = self._solve(original_state, original_solution, (best_rotation, ), 9)
 
         self.solution = compress_solution(min_solution)
 
