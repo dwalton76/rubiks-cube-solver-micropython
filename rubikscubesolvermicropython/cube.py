@@ -136,7 +136,7 @@ def timed_function(f, *args, **kwargs):
     return new_func
 
 
-@timed_function
+# @timed_function
 def get_lines_in_file(file_data, line_width, line_index, lines_to_get):
     """
     result = []
@@ -152,7 +152,7 @@ def get_lines_in_file(file_data, line_width, line_index, lines_to_get):
     return [int(x, 16) for x in file_data[line_width * line_index : (line_width * line_index) + (line_width * lines_to_get)].splitlines()]
 
 
-@timed_function
+# @timed_function
 def cube2str(cube):
     """
     Return a human readable string for `cube`
@@ -200,7 +200,7 @@ def cube2str(cube):
     return result
 
 
-@timed_function
+# @timed_function
 def cube2strcolor(cube):
     """
     Add color to the `cube` string
@@ -215,7 +215,7 @@ def cube2strcolor(cube):
     return cube_string
 
 
-@timed_function
+# @timed_function
 def get_alg_cubing_net_url(solution):
     """
     Return an alg.cubing.net URL for `solution`
@@ -270,7 +270,7 @@ def RFIX(RR):
     return ((int(RR) + 1) & 3) - 1
 
 
-@timed_function
+# @timed_function
 def get_step_string(f, r):
     """
     Give the face `f` and rotation `r`, return the string equivalent such as U, U', U2, etc
@@ -290,7 +290,7 @@ def get_step_string(f, r):
 
 FULL_CUBE_ROTATES = set(("x", "x'", "x2", "y", "y'", "y2", "z", "z'", "z2"))
 
-@timed_function
+# @timed_function
 def get_solution_len_minus_rotates(solution):
     """
     Return the length of `solution` ignoring comments and whole cube rotations
@@ -311,7 +311,7 @@ def get_solution_len_minus_rotates(solution):
     return count
 
 
-@timed_function
+# @timed_function
 def apply_rotations(size, step, rotations):
     """
     Apply the `rotations` to `step` and return the `step`. This is used by
@@ -418,7 +418,7 @@ def apply_rotations(size, step, rotations):
     return step
 
 
-@timed_function
+# @timed_function
 def compress_solution(solution):
     """
     Remove the whole cube rotations from `solution`
@@ -519,12 +519,12 @@ class RubiksCube333(object):
         #self.state_backup = self.state[:]
         self.index_init_all()
 
-    @timed_function
+    # @timed_function
     def re_init(self):
         self.solution = []
         self.state = self.state_backup[:]
 
-    @timed_function
+    # @timed_function
     def load_tables(self):
 
         # Get the directory where cube.py was installed...example:
@@ -571,7 +571,7 @@ class RubiksCube333(object):
             (const(8), "last three edges", (), ((U, R), (U, F), (U, L)),            const(8), self.mtd8, const(95),  const(15)),
         )
 
-    @timed_function
+    # @timed_function
     def get_kociemba_string(self):
         """
         Return the cube state as a kociemba string
@@ -589,7 +589,7 @@ class RubiksCube333(object):
             result.append(side2str[self.state[x]])
         return "".join(result)
 
-    @timed_function
+    # @timed_function
     def rotate(self, step):
         """
         Apply `step` to the cube and append `step` to our solution list
@@ -608,7 +608,7 @@ class RubiksCube333(object):
 
         self.solution.append(step)
 
-    @timed_function
+    # @timed_function
     def rotate_side_X_to_Y(self, x, y):
         """
         Rotate the entire cube so that side `x` is on side `y`
@@ -648,21 +648,21 @@ class RubiksCube333(object):
             else:
                 self.rotate("y")
 
-    @timed_function
+    # @timed_function
     def rotate_U_to_U(self):
         """
         Rotate side U to the top
         """
         self.rotate_side_X_to_Y(U, "U")
 
-    @timed_function
+    # @timed_function
     def rotate_F_to_F(self):
         """
         Rotate side F to the front
         """
         self.rotate_side_X_to_Y(F, "F")
 
-    @timed_function
+    # @timed_function
     def recolor(self, recolor_map):
         """
         Recolor the squares of the cube per `recolor_map`
@@ -672,7 +672,7 @@ class RubiksCube333(object):
         for x in r:
             ref_state[x] = recolor_map[ref_state[x]]
 
-    @timed_function
+    # @timed_function
     def index_init_all(self):
         """
         Initialize all indexes. This is called at the start of the solve for a cube.
@@ -685,7 +685,7 @@ class RubiksCube333(object):
         self.idx_ic = 24
         self.idx_ie = 24
 
-    @timed_function
+    # @timed_function
     def index_init(self):
         """
         Initialize indexes. This is called at the start of each phase for solving a cube.
@@ -694,14 +694,14 @@ class RubiksCube333(object):
         self.idx_ne = 0
         self.idx = 0
 
-    @timed_function
+    # @timed_function
     def index_last(self):
         """
         Initialize indexes for the last phase
         """
         self.idx = ((self.idx >> 2) <<1 ) | (self.idx & 1);
 
-    @timed_function
+    # @timed_function
     def index_corner(self, f0, f1, f2):
         """
         Set idx, idx_ic and idx_nc for corner `f0/f1/f2`
@@ -730,7 +730,7 @@ class RubiksCube333(object):
         self.idx_nc += 1
         self.idx_ic -= 3
 
-    @timed_function
+    # @timed_function
     def index_edge(self, f0, f1):
         """
         Set idx, idx_ie and idx_ne for edge `f0/f1`
@@ -759,7 +759,7 @@ class RubiksCube333(object):
         self.idx_ne += 1
         self.idx_ie -= 2
 
-    @timed_function
+    # @timed_function
     def verify_solution(self, original_state, solution):
         """
         Put the cube back in the original state and apply `solution` to verify
@@ -780,7 +780,7 @@ class RubiksCube333(object):
             import sys
             sys.exit(0)
 
-    @timed_function
+    # @timed_function
     def solve_phase(self, phase, desc, mtb, mtd, sz, mvm):
         """
         Solve a single phase per the `mtd` table
@@ -888,7 +888,7 @@ class RubiksCube333(object):
                     ref_solution.append(step)
                     mv += 1
 
-    @timed_function
+    # @timed_function
     def solve(self):
         """
         Solve the cube and return the solution
