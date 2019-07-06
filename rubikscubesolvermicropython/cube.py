@@ -157,7 +157,7 @@ def cube2str(cube):
     """
     Return a human readable string for `cube`
     """
-    return """
+    result = """
         %s %s %s
         %s %s %s
         %s %s %s
@@ -193,6 +193,11 @@ def cube2str(cube):
     cube[48], cube[49], cube[50], # D row 2
     cube[51], cube[52], cube[53]  # D row 3
     )
+
+    for (side_number, side_name) in side2str.items():
+        result = result.replace(str(side_number), side_name)
+
+    return result
 
 
 @timed_function
@@ -790,6 +795,7 @@ class RubiksCube333(object):
             # ref_RFIX = RFIX
             # ref_get_step_string = get_step_string
             #ref_rotate = self.rotate
+            ref_rotate_map = rotate_map
             ref_state = self.state
             ref_state_scratchpad = self.state_scratchpad
             ref_solution = self.solution
@@ -801,7 +807,10 @@ class RubiksCube333(object):
             i = (idx - 1) * mtb
             orig_i = i
 
-            steps = ref_get_lines_in_file(mtd, LINE_WIDTH, i, mvm)
+            # unrolled this to avoid a function call
+            #steps = ref_get_lines_in_file(mtd, LINE_WIDTH, i, mvm)
+            steps = [int(x, 16) for x in mtd[LINE_WIDTH * i : (LINE_WIDTH * i) + (LINE_WIDTH * mvm)].splitlines()]
+
             b = steps[0]
             i += 1
 
@@ -819,17 +828,17 @@ class RubiksCube333(object):
 
                 # r is 1/4 forward, 1/4 backward or 1/2 turn
                 if r0 == 1:
-                    step = get_step_string_side2str[f0]
+                    step = ref_get_step_string_side2str[f0]
                 elif r0 == 2:
-                    step = "{}2".format(get_step_string_side2str[f0])
+                    step = "{}2".format(ref_get_step_string_side2str[f0])
                 elif r0 == 3:
-                    step = "{}'".format(get_step_string_side2str[f0])
+                    step = "{}'".format(ref_get_step_string_side2str[f0])
                 else:
                     raise Exception("rotate r0 '%s' is invalid" % r0)
 
                 # unrolled this to avoid a function call
                 #ref_rotate(step)
-                rotate_function = rotate_map.get(step)
+                rotate_function = ref_rotate_map.get(step)
                 rotate_function(ref_state, ref_state_scratchpad)
                 ref_solution.append(step)
 
@@ -864,17 +873,17 @@ class RubiksCube333(object):
 
                     # r is 1/4 forward, 1/4 backward or 1/2 turn
                     if r0 == 1:
-                        step = get_step_string_side2str[f0]
+                        step = ref_get_step_string_side2str[f0]
                     elif r0 == 2:
-                        step = "{}2".format(get_step_string_side2str[f0])
+                        step = "{}2".format(ref_get_step_string_side2str[f0])
                     elif r0 == 3:
-                        step = "{}'".format(get_step_string_side2str[f0])
+                        step = "{}'".format(ref_get_step_string_side2str[f0])
                     else:
                         raise Exception("rotate r0 '%s' is invalid" % r0)
 
                     # unrolled this to avoid a function call
                     #ref_rotate(step)
-                    rotate_function = rotate_map.get(step)
+                    rotate_function = ref_rotate_map.get(step)
                     rotate_function(ref_state, ref_state_scratchpad)
                     ref_solution.append(step)
                     mv += 1
@@ -884,7 +893,7 @@ class RubiksCube333(object):
         """
         Solve the cube and return the solution
         """
-        #print("INIT CUBE:\n%s" % (cube2strcolor(self.state)))
+        print("INIT CUBE:\n%s" % (cube2strcolor(self.state)))
         solution_len = len(self.solution)
         prev_solution_len = solution_len
         self.rotate_U_to_U()
@@ -935,7 +944,12 @@ class RubiksCube333(object):
             ref_index_init_all()
 
             for (phase, desc, corners, edges, mtb, mtd, sz, mvm) in ref_phases:
-                ref_index_init()
+
+                # unrolled this to avoid a function call
+                # ref_index_init()
+                self.idx_nc = 0
+                self.idx_ne = 0
+                self.idx = 0
 
                 for corner in corners:
                     ref_index_corner(*corner)
@@ -954,20 +968,21 @@ class RubiksCube333(object):
 
             #solution_len = get_solution_len_minus_rotates(self.solution)
             # There will be one COMMENT per phase
-            solution_len -= rotation_count - phase_count
+            solution_len = len(self.solution)
+            solution_len -= rotation_count + phase_count
 
             if solution_len < min_solution_len:
                 min_solution_len = solution_len
                 min_solution_recolor_map = recolor_map
                 min_solution = self.solution[:]
-            #    print("(NEW MIN) rotations %s, solution len %d" % (" ".join(rotations), solution_len))
-            #else:
-            #    print("rotations %s, solution len %d" % (" ".join(rotations), solution_len))
+                print("(NEW MIN) rotations %s, solution len %d" % (" ".join(rotations), solution_len))
+            else:
+                print("rotations %s, solution len %d" % (" ".join(rotations), solution_len))
 
         self.solution = compress_solution(min_solution)
 
-        #print("FINAL CUBE:\n%s" % (cube2strcolor(self.state)))
-        #print(get_alg_cubing_net_url(self.solution))
+        print("FINAL CUBE:\n%s" % (cube2strcolor(self.state)))
+        print(get_alg_cubing_net_url(self.solution))
 
         # Remove the comments from the solution
         self.solution = [x for x in self.solution if not x.startswith("COMMENT")]
