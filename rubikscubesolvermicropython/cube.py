@@ -78,30 +78,30 @@ cube_layout = """
 # There are 24 combinations to try in terms of which colors
 # are on side U and side F
 rotations_24 = (
-    (),
-    ("y",),
-    ("y'",),
-    ("y", "y"),
-    ("x", "x"),
-    ("x", "x", "y"),
-    ("x", "x", "y'"),
-    ("x", "x", "y", "y"),
-    ("y'", "x"),
-    ("y'", "x", "y"),
-    ("y'", "x", "y'"),
-    ("y'", "x", "y", "y"),
-    ("x",),
-    ("x", "y"),
-    ("x", "y'"),
-    ("x", "y", "y"),
-    ("y", "x"),
-    ("y", "x", "y"),
-    ("y", "x", "y'"),
-    ("y", "x", "y", "y"),
-    ("x'",),
-    ("x'", "y"),
-    ("x'", "y'"),
-    ("x'", "y", "y"),
+    (const(0), ()),
+    (const(1), ("y",)),
+    (const(1), ("y'",)),
+    (const(2), ("y", "y")),
+    (const(2), ("x", "x")),
+    (const(3), ("x", "x", "y")),
+    (const(3), ("x", "x", "y'")),
+    (const(4), ("x", "x", "y", "y")),
+    (const(2), ("y'", "x")),
+    (const(3), ("y'", "x", "y")),
+    (const(3), ("y'", "x", "y'")),
+    (const(4), ("y'", "x", "y", "y")),
+    (const(1), ("x",)),
+    (const(2), ("x", "y")),
+    (const(2), ("x", "y'")),
+    (const(3), ("x", "y", "y")),
+    (const(2), ("y", "x")),
+    (const(3), ("y", "x", "y")),
+    (const(3), ("y", "x", "y'")),
+    (const(4), ("y", "x", "y", "y")),
+    (const(1), ("x'",)),
+    (const(2), ("x'", "y")),
+    (const(2), ("x'", "y'")),
+    (const(3), ("x'", "y", "y")),
 )
 
 
@@ -909,8 +909,9 @@ class RubiksCube333(object):
         ref_solve_phase = self.solve_phase
         ref_rotations_24 = rotations_24
         last_phase = const(8)
+        phase_count = const(9)
 
-        for rotations in ref_rotations_24:
+        for (rotation_count, rotations) in ref_rotations_24:
             self.state = original_state[:]
             self.solution = original_solution[:]
 
@@ -951,7 +952,9 @@ class RubiksCube333(object):
                     phase, desc, (solution_len - prev_solution_len)))
                 prev_solution_len = solution_len
 
-            solution_len = get_solution_len_minus_rotates(self.solution)
+            #solution_len = get_solution_len_minus_rotates(self.solution)
+            # There will be one COMMENT per phase
+            solution_len -= rotation_count - phase_count
 
             if solution_len < min_solution_len:
                 min_solution_len = solution_len
