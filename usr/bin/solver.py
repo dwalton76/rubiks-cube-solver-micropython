@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 
 # If the user did not specify a cube to solve, solve this random one
 if len(sys.argv) < 2:
-    cube_state = "RRBBUFBFBRLRRRFRDDURUBFBBRFLUDUDFLLFFLLLLDFBDDDUUBDLUU"
+    cube_state = "UFRUUDRLFLBUFRUDLBDFUFFDBBBRRRDDBFLDLBFDLRLRUFUBRBLLUD"
 else:
     cube_state = sys.argv[1]
 
