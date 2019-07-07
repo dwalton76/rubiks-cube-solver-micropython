@@ -7,7 +7,6 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(filename)22s %(levelname)8s: %(message)s')
 log = logging.getLogger(__name__)
 
-
 # Solved 3x3x3
 # UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB
 
@@ -18,5 +17,6 @@ else:
     cube_state = sys.argv[1]
 
 cube = RubiksCube333(cube_state, 'URFDLB')
+cube.load_tables()
 cube.solve()
 print("\nSOLUTION (%d steps): %s\n" % (len(cube.solution), " ".join(cube.solution)))
