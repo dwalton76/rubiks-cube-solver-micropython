@@ -1,6 +1,5 @@
 
 from micropython import const
-from rubikscubesolvermicropython.rotate import *
 import utime
 
 U = const(0)
@@ -30,36 +29,8 @@ get_step_string_side2str = {
     5 : "L",
 }
 
-rotate_map = {
-    "B": rotate_B,
-    "B'": rotate_B_prime,
-    "B2": rotate_B2,
-    "D": rotate_D,
-    "D'": rotate_D_prime,
-    "D2": rotate_D2,
-    "F": rotate_F,
-    "F'": rotate_F_prime,
-    "F2": rotate_F2,
-    "L": rotate_L,
-    "L'": rotate_L_prime,
-    "L2": rotate_L2,
-    "R": rotate_R,
-    "R'": rotate_R_prime,
-    "R2": rotate_R2,
-    "U": rotate_U,
-    "U'": rotate_U_prime,
-    "U2": rotate_U2,
-    "x": rotate_x,
-    "x'": rotate_x_prime,
-    "x2": rotate_x2,
-    "y": rotate_y,
-    "y'": rotate_y_prime,
-    "y2": rotate_y2,
-    "z": rotate_z,
-    "z'": rotate_z_prime,
-    "z2": rotate_z2
-}
 
+'''
 cube_layout = """
           00 01 02
           03 04 05
@@ -73,37 +44,39 @@ cube_layout = """
           48 49 50
           51 52 53
 """
+'''
 
 
-# There are 24 combinations to try in terms of which colors
-# are on side U and side F
-rotations_24 = (
-    (const(0), ()),
-    (const(1), ("y",)),
-    (const(1), ("y'",)),
-    (const(2), ("y", "y")),
-    (const(2), ("x", "x")),
-    (const(3), ("x", "x", "y")),
-    (const(3), ("x", "x", "y'")),
-    (const(4), ("x", "x", "y", "y")),
-    (const(2), ("y'", "x")),
-    (const(3), ("y'", "x", "y")),
-    (const(3), ("y'", "x", "y'")),
-    (const(4), ("y'", "x", "y", "y")),
-    (const(1), ("x",)),
-    (const(2), ("x", "y")),
-    (const(2), ("x", "y'")),
-    (const(3), ("x", "y", "y")),
-    (const(2), ("y", "x")),
-    (const(3), ("y", "x", "y")),
-    (const(3), ("y", "x", "y'")),
-    (const(4), ("y", "x", "y", "y")),
-    (const(1), ("x'",)),
-    (const(2), ("x'", "y")),
-    (const(2), ("x'", "y'")),
-    (const(3), ("x'", "y", "y")),
-)
-
+# facelet swaps for 3x3x3 moves
+swaps_333 = {
+    "B" : (29, 32, 35, 3, 4, 5, 6, 7, 8, 2, 10, 11, 1, 13, 14, 0, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 53, 30, 31, 52, 33, 34, 51, 42, 39, 36, 43, 40, 37, 44, 41, 38, 45, 46, 47, 48, 49, 50, 9, 12, 15),
+    "B'" : (15, 12, 9, 3, 4, 5, 6, 7, 8, 51, 10, 11, 52, 13, 14, 53, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 0, 30, 31, 1, 33, 34, 2, 38, 41, 44, 37, 40, 43, 36, 39, 42, 45, 46, 47, 48, 49, 50, 35, 32, 29),
+    "B2" : (53, 52, 51, 3, 4, 5, 6, 7, 8, 35, 10, 11, 32, 13, 14, 29, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 15, 30, 31, 12, 33, 34, 9, 44, 43, 42, 41, 40, 39, 38, 37, 36, 45, 46, 47, 48, 49, 50, 2, 1, 0),
+    "D" : (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 42, 43, 44, 18, 19, 20, 21, 22, 23, 15, 16, 17, 27, 28, 29, 30, 31, 32, 24, 25, 26, 36, 37, 38, 39, 40, 41, 33, 34, 35, 51, 48, 45, 52, 49, 46, 53, 50, 47),
+    "D'" : (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 24, 25, 26, 18, 19, 20, 21, 22, 23, 33, 34, 35, 27, 28, 29, 30, 31, 32, 42, 43, 44, 36, 37, 38, 39, 40, 41, 15, 16, 17, 47, 50, 53, 46, 49, 52, 45, 48, 51),
+    "D2" : (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 33, 34, 35, 18, 19, 20, 21, 22, 23, 42, 43, 44, 27, 28, 29, 30, 31, 32, 15, 16, 17, 36, 37, 38, 39, 40, 41, 24, 25, 26, 53, 52, 51, 50, 49, 48, 47, 46, 45),
+    "F" : (0, 1, 2, 3, 4, 5, 17, 14, 11, 9, 10, 45, 12, 13, 46, 15, 16, 47, 24, 21, 18, 25, 22, 19, 26, 23, 20, 6, 28, 29, 7, 31, 32, 8, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 33, 30, 27, 48, 49, 50, 51, 52, 53),
+    "F'" : (0, 1, 2, 3, 4, 5, 27, 30, 33, 9, 10, 8, 12, 13, 7, 15, 16, 6, 20, 23, 26, 19, 22, 25, 18, 21, 24, 47, 28, 29, 46, 31, 32, 45, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 11, 14, 17, 48, 49, 50, 51, 52, 53),
+    "F2" : (0, 1, 2, 3, 4, 5, 47, 46, 45, 9, 10, 33, 12, 13, 30, 15, 16, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 28, 29, 14, 31, 32, 11, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 8, 7, 6, 48, 49, 50, 51, 52, 53),
+    "L" : (44, 1, 2, 41, 4, 5, 38, 7, 8, 15, 12, 9, 16, 13, 10, 17, 14, 11, 0, 19, 20, 3, 22, 23, 6, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 51, 39, 40, 48, 42, 43, 45, 18, 46, 47, 21, 49, 50, 24, 52, 53),
+    "L'" : (18, 1, 2, 21, 4, 5, 24, 7, 8, 11, 14, 17, 10, 13, 16, 9, 12, 15, 45, 19, 20, 48, 22, 23, 51, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 6, 39, 40, 3, 42, 43, 0, 44, 46, 47, 41, 49, 50, 38, 52, 53),
+    "L2" : (45, 1, 2, 48, 4, 5, 51, 7, 8, 17, 16, 15, 14, 13, 12, 11, 10, 9, 44, 19, 20, 41, 22, 23, 38, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 24, 39, 40, 21, 42, 43, 18, 0, 46, 47, 3, 49, 50, 6, 52, 53),
+    "R" : (0, 1, 20, 3, 4, 23, 6, 7, 26, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 47, 21, 22, 50, 24, 25, 53, 33, 30, 27, 34, 31, 28, 35, 32, 29, 8, 37, 38, 5, 40, 41, 2, 43, 44, 45, 46, 42, 48, 49, 39, 51, 52, 36),
+    "R'" : (0, 1, 42, 3, 4, 39, 6, 7, 36, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 2, 21, 22, 5, 24, 25, 8, 29, 32, 35, 28, 31, 34, 27, 30, 33, 53, 37, 38, 50, 40, 41, 47, 43, 44, 45, 46, 20, 48, 49, 23, 51, 52, 26),
+    "R2" : (0, 1, 47, 3, 4, 50, 6, 7, 53, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 42, 21, 22, 39, 24, 25, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 37, 38, 23, 40, 41, 20, 43, 44, 45, 46, 2, 48, 49, 5, 51, 52, 8),
+    "U" : (6, 3, 0, 7, 4, 1, 8, 5, 2, 18, 19, 20, 12, 13, 14, 15, 16, 17, 27, 28, 29, 21, 22, 23, 24, 25, 26, 36, 37, 38, 30, 31, 32, 33, 34, 35, 9, 10, 11, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53),
+    "U'" : (2, 5, 8, 1, 4, 7, 0, 3, 6, 36, 37, 38, 12, 13, 14, 15, 16, 17, 9, 10, 11, 21, 22, 23, 24, 25, 26, 18, 19, 20, 30, 31, 32, 33, 34, 35, 27, 28, 29, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53),
+    "U2" : (8, 7, 6, 5, 4, 3, 2, 1, 0, 27, 28, 29, 12, 13, 14, 15, 16, 17, 36, 37, 38, 21, 22, 23, 24, 25, 26, 9, 10, 11, 30, 31, 32, 33, 34, 35, 18, 19, 20, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53),
+    "x" : (18, 19, 20, 21, 22, 23, 24, 25, 26, 11, 14, 17, 10, 13, 16, 9, 12, 15, 45, 46, 47, 48, 49, 50, 51, 52, 53, 33, 30, 27, 34, 31, 28, 35, 32, 29, 8, 7, 6, 5, 4, 3, 2, 1, 0, 44, 43, 42, 41, 40, 39, 38, 37, 36),
+    "x'" : (44, 43, 42, 41, 40, 39, 38, 37, 36, 15, 12, 9, 16, 13, 10, 17, 14, 11, 0, 1, 2, 3, 4, 5, 6, 7, 8, 29, 32, 35, 28, 31, 34, 27, 30, 33, 53, 52, 51, 50, 49, 48, 47, 46, 45, 18, 19, 20, 21, 22, 23, 24, 25, 26),
+    "x2" : (45, 46, 47, 48, 49, 50, 51, 52, 53, 17, 16, 15, 14, 13, 12, 11, 10, 9, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 0, 1, 2, 3, 4, 5, 6, 7, 8),
+    "y" : (6, 3, 0, 7, 4, 1, 8, 5, 2, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 9, 10, 11, 12, 13, 14, 15, 16, 17, 47, 50, 53, 46, 49, 52, 45, 48, 51),
+    "y'" : (2, 5, 8, 1, 4, 7, 0, 3, 6, 36, 37, 38, 39, 40, 41, 42, 43, 44, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 51, 48, 45, 52, 49, 46, 53, 50, 47),
+    "y2" : (8, 7, 6, 5, 4, 3, 2, 1, 0, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 53, 52, 51, 50, 49, 48, 47, 46, 45),
+    "z" : (15, 12, 9, 16, 13, 10, 17, 14, 11, 51, 48, 45, 52, 49, 46, 53, 50, 47, 24, 21, 18, 25, 22, 19, 26, 23, 20, 6, 3, 0, 7, 4, 1, 8, 5, 2, 38, 41, 44, 37, 40, 43, 36, 39, 42, 33, 30, 27, 34, 31, 28, 35, 32, 29),
+    "z'" : (29, 32, 35, 28, 31, 34, 27, 30, 33, 2, 5, 8, 1, 4, 7, 0, 3, 6, 20, 23, 26, 19, 22, 25, 18, 21, 24, 47, 50, 53, 46, 49, 52, 45, 48, 51, 42, 39, 36, 43, 40, 37, 44, 41, 38, 11, 14, 17, 10, 13, 16, 9, 12, 15),
+    "z2" : (53, 52, 51, 50, 49, 48, 47, 46, 45, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 44, 43, 42, 41, 40, 39, 38, 37, 36, 8, 7, 6, 5, 4, 3, 2, 1, 0),
+}
 
 def print_mem_stats(desc):
     import gc
@@ -133,19 +106,10 @@ def timed_function(f, *args, **kwargs):
 
 
 # @timed_function
-def get_lines_in_file(file_data, line_width, line_index, lines_to_get):
-    """
-    result = []
-    start = line_width * line_index
-    end = start + (line_width * lines_to_get)
-    data = file_data[start:end]
-
-    for line in data.splitlines():
-        result.append(int(line, 16))
-
-    return result
-    """
-    return [int(x, 16) for x in file_data[line_width * line_index : (line_width * line_index) + (line_width * lines_to_get)].splitlines()]
+def get_lines_in_file(filename, line_width, line_index, lines_to_get):
+    with open(filename, "r") as fh:
+        fh.seek(line_width * line_index)
+        return [int(x, 16) for x in fh.read(line_width * lines_to_get).splitlines()]
 
 
 # @timed_function
@@ -519,53 +483,7 @@ class RubiksCube333(object):
     def re_init(self):
         self.solution = []
         self.state = self.state_backup[:]
-
-    # @timed_function
-    def load_tables(self):
-
-        # Get the directory where cube.py was installed...example:
-        # /usr/lib/micropython/rubikscubesolvermicropython/cube.py
-        directory = "/".join(__file__.split("/")[:-1]) + "/"
-
-        with open(directory + "mtd0.txt", "r") as fh:
-            self.mtd0 = fh.read()
-
-        with open(directory + "mtd1.txt", "r") as fh:
-            self.mtd1 = fh.read()
-
-        with open(directory + "mtd2.txt", "r") as fh:
-            self.mtd2 = fh.read()
-
-        with open(directory + "mtd3.txt", "r") as fh:
-            self.mtd3 = fh.read()
-
-        with open(directory + "mtd4.txt", "r") as fh:
-            self.mtd4 = fh.read()
-
-        with open(directory + "mtd5.txt", "r") as fh:
-            self.mtd5 = fh.read()
-
-        with open(directory + "mtd6.txt", "r") as fh:
-            self.mtd6 = fh.read()
-
-        with open(directory + "mtd7.txt", "r") as fh:
-            self.mtd7 = fh.read()
-
-        with open(directory + "mtd8.txt", "r") as fh:
-            self.mtd8 = fh.read()
-
-        # We should be able to drop in different phases/tables in the future
-        self.phases = (
-            (const(0), "two edges", (), ((D, F), (D, R)),                           const(3), self.mtd0, const(527), const(5)),
-            (const(1), "one corner, one edge", ((D, F, R),), ((F, R),),             const(4), self.mtd1, const(479), const(7)),
-            (const(2), "one edge", (), ((D, B),),                                   const(3), self.mtd2, const(17),  const(5)),
-            (const(3), "one corner, one edge", ((D, R, B),), ((R, B),),             const(5), self.mtd3, const(335), const(9)),
-            (const(4), "one edge", (), ((D, L),),                                   const(3), self.mtd4, const(13),  const(5)),
-            (const(5), "one corner, one edge", ((D, B, L),), ((B, L),),             const(5), self.mtd5, const(215), const(9)),
-            (const(6), "one corner, one edge", ((D, L, F),), ((L, F),),             const(5), self.mtd6, const(149), const(9)),
-            (const(7), "last three corners", ((U, R, F), (U, F, L), (U, L, B)), (), const(7), self.mtd7, const(647), const(13)),
-            (const(8), "last three edges", (), ((U, R), (U, F), (U, L)),            const(8), self.mtd8, const(95),  const(15)),
-        )
+        self.index_init_all()
 
     # @timed_function
     def get_kociemba_string(self):
@@ -590,6 +508,9 @@ class RubiksCube333(object):
         """
         Apply `step` to the cube and append `step` to our solution list
         """
+        ref_swaps_333 = swaps_333
+        ref_state = self.state
+        ref_state_scratchpad = self.state_scratchpad
 
         # On a laptop the following list comp is the fastest way to do the rotate. This involves
         # allocating memory for the new list everytime though.  That malloc is about 600x slower
@@ -599,8 +520,11 @@ class RubiksCube333(object):
 
         # So what we do instead is use a scratchpad bytearray to do the rotate without
         # any mallocs
-        rotate_function = rotate_map.get(step)
-        rotate_function(self.state, self.state_scratchpad)
+        for (i, x) in enumerate(ref_swaps_333[step]):
+            ref_state_scratchpad[i] = ref_state[x]
+
+        for i in range(54):
+            ref_state[i] = ref_state_scratchpad[i]
 
         self.solution.append(step)
 
@@ -657,16 +581,6 @@ class RubiksCube333(object):
         Rotate side F to the front
         """
         self.rotate_side_X_to_Y(F, "F")
-
-    # @timed_function
-    def recolor(self, recolor_map):
-        """
-        Recolor the squares of the cube per `recolor_map`
-        """
-        ref_state = self.state
-        r = range(self.FACELET_COUNT)
-        for x in r:
-            ref_state[x] = recolor_map[ref_state[x]]
 
     # @timed_function
     def index_init_all(self):
@@ -788,56 +702,28 @@ class RubiksCube333(object):
         if idx > 0:
             ref_get_lines_in_file = get_lines_in_file
             ref_get_step_string_side2str = get_step_string_side2str
-            # ref_RFIX = RFIX
-            # ref_get_step_string = get_step_string
-            #ref_rotate = self.rotate
-            ref_rotate_map = rotate_map
+            ref_RFIX = RFIX
+            ref_get_step_string = get_step_string
+            ref_rotate = self.rotate
             ref_state = self.state
             ref_state_scratchpad = self.state_scratchpad
             ref_solution = self.solution
 
             LINE_WIDTH = const(5)
-            #mvm = (mtb * 2) - 1
-            # print("\nphase %d %s: mtb %d, mtd %s, mvm %d, sz %d, idx %d" % (phase, desc, mtb, mtd, mvm, sz, self.idx))
-
             i = (idx - 1) * mtb
             orig_i = i
 
-            # unrolled this to avoid a function call
-            #steps = ref_get_lines_in_file(mtd, LINE_WIDTH, i, mvm)
-            steps = [int(x, 16) for x in mtd[LINE_WIDTH * i : (LINE_WIDTH * i) + (LINE_WIDTH * mvm)].splitlines()]
-
+            steps = ref_get_lines_in_file(mtd, LINE_WIDTH, i, mvm)
             b = steps[0]
             i += 1
 
             if b != 0xFF:
                 mv = 0
                 f0 = int(b / 3)
+                r0 = ref_RFIX(b - (f0 * 3) + 1)
 
-                # unrolled this to avoid a function call
-                # r0 = ref_RFIX(b - (f0 * 3) + 1)
-                r0 = ((b - (f0 * 3) + 2) & 3) - 1
-
-                # unrolled this to avoid a function call
-                # step = ref_get_step_string(f0, r0)
-                r0 &= 3
-
-                # r is 1/4 forward, 1/4 backward or 1/2 turn
-                if r0 == 1:
-                    step = ref_get_step_string_side2str[f0]
-                elif r0 == 2:
-                    step = "{}2".format(ref_get_step_string_side2str[f0])
-                elif r0 == 3:
-                    step = "{}'".format(ref_get_step_string_side2str[f0])
-                else:
-                    raise Exception("rotate r0 '%s' is invalid" % r0)
-
-                # unrolled this to avoid a function call
-                #ref_rotate(step)
-                rotate_function = ref_rotate_map.get(step)
-                rotate_function(ref_state, ref_state_scratchpad)
-                ref_solution.append(step)
-
+                step = ref_get_step_string(f0, r0)
+                ref_rotate(step)
                 mv += 1
 
                 while mv < mvm:
@@ -853,136 +739,77 @@ class RubiksCube333(object):
                         break
 
                     f1 = int(b0 / 3)
-
-                    # unrolled this to avoid a function call
-                    # r0 = ref_RFIX(b0 - (f1 * 3) + 1)
-                    r0 = ((b0 - (f1 * 3) + 2) & 3) - 1
+                    r0 = ref_RFIX(b0 - (f1 * 3) + 1)
 
                     if f1 >= f0:
                         f1 += 1
 
                     f0 = f1
 
-                    # unrolled this to avoid a function call
-                    #step = ref_get_step_string(f0, r0)
-                    r0 &= 3
-
-                    # r is 1/4 forward, 1/4 backward or 1/2 turn
-                    if r0 == 1:
-                        step = ref_get_step_string_side2str[f0]
-                    elif r0 == 2:
-                        step = "{}2".format(ref_get_step_string_side2str[f0])
-                    elif r0 == 3:
-                        step = "{}'".format(ref_get_step_string_side2str[f0])
-                    else:
-                        raise Exception("rotate r0 '%s' is invalid" % r0)
-
-                    # unrolled this to avoid a function call
-                    #ref_rotate(step)
-                    rotate_function = ref_rotate_map.get(step)
-                    rotate_function(ref_state, ref_state_scratchpad)
-                    ref_solution.append(step)
+                    step = ref_get_step_string(f0, r0)
+                    ref_rotate(step)
                     mv += 1
-
-    def _solve(self, original_state, original_solution, rotations_to_try, phases_to_solve):
-        ref_rotate = self.rotate
-        ref_recolor = self.recolor
-        ref_phases = self.phases
-        ref_index_init_all = self.index_init_all
-        ref_index_corner = self.index_corner
-        ref_index_edge = self.index_edge
-        ref_index_last = self.index_last
-        ref_solve_phase = self.solve_phase
-        ref_rotations_24 = rotations_24
-
-        min_solution = None
-        min_solution_len = 999
-        min_rotations = None
-        min_rotation_count = None
-
-        last_phase = const(8)
-
-        # Try all 'rotations_to_try', find the one with the shortest solution
-        for (rotation_count, rotations) in rotations_to_try:
-            self.state = original_state[:]
-            self.solution = original_solution[:]
-
-            for step in rotations:
-                ref_rotate(step)
-
-            solution_len = len(self.solution)
-            prev_solution_len = solution_len
-            ref_state = self.state
-
-            recolor_map = {
-                ref_state[4] : U,
-                ref_state[13] : L,
-                ref_state[22] : F,
-                ref_state[31] : R,
-                ref_state[40] : B,
-                ref_state[49] : D,
-            }
-
-            ref_recolor(recolor_map)
-            ref_index_init_all()
-
-            for (phase, desc, corners, edges, mtb, mtd, sz, mvm) in ref_phases[0:phases_to_solve]:
-
-                # unrolled this to avoid a function call
-                # ref_index_init()
-                self.idx_nc = 0
-                self.idx_ne = 0
-                self.idx = 0
-
-                for corner in corners:
-                    ref_index_corner(*corner)
-
-                for edge in edges:
-                    ref_index_edge(*edge)
-
-                if phase == last_phase:
-                    ref_index_last()
-
-                ref_solve_phase(phase, desc, mtb, mtd, sz, mvm)
-                solution_len = len(self.solution)
-                self.solution.append("COMMENT phase %s: %s (%d steps)" % (
-                    phase, desc, (solution_len - prev_solution_len)))
-                prev_solution_len = solution_len
-
-            # There will be one COMMENT per phase
-            solution_len = len(self.solution)
-            solution_len -= rotation_count + phases_to_solve
-
-            if solution_len < min_solution_len:
-                min_solution_len = solution_len
-                min_solution = self.solution[:]
-                min_rotations = rotations
-                min_rotation_count = rotation_count
-                print("(NEW MIN) rotations %s, solution len %d" % (" ".join(rotations), solution_len))
-            else:
-                print("rotations %s, solution len %d" % (" ".join(rotations), solution_len))
-
-        return ((min_rotation_count, min_rotations), min_solution)
 
     # @timed_function
     def solve(self):
         """
         Solve the cube and return the solution
         """
+        ref_rotate = self.rotate
+        ref_index_init = self.index_init
+        ref_index_corner = self.index_corner
+        ref_index_edge = self.index_edge
+        ref_index_last = self.index_last
+        ref_solve_phase = self.solve_phase
+
+        # Get the directory where cube.py was installed...example:
+        # /usr/lib/micropython/rubikscubesolvermicropython/cube.py
+        directory = "/".join(__file__.split("/")[:-1]) + "/"
+
+        # We should be able to drop in different phases/tables in the future
+        phases = (
+            (const(0), "two edges", (), ((D, F), (D, R)),                           const(3), directory + "mtd0.txt", const(527), const(5)),
+            (const(1), "one corner, one edge", ((D, F, R),), ((F, R),),             const(4), directory + "mtd1.txt", const(479), const(7)),
+            (const(2), "one edge", (), ((D, B),),                                   const(3), directory + "mtd2.txt", const(17),  const(5)),
+            (const(3), "one corner, one edge", ((D, R, B),), ((R, B),),             const(5), directory + "mtd3.txt", const(335), const(9)),
+            (const(4), "one edge", (), ((D, L),),                                   const(3), directory + "mtd4.txt", const(13),  const(5)),
+            (const(5), "one corner, one edge", ((D, B, L),), ((B, L),),             const(5), directory + "mtd5.txt", const(215), const(9)),
+            (const(6), "one corner, one edge", ((D, L, F),), ((L, F),),             const(5), directory + "mtd6.txt", const(149), const(9)),
+            (const(7), "last three corners", ((U, R, F), (U, F, L), (U, L, B)), (), const(7), directory + "mtd7.txt", const(647), const(13)),
+            (const(8), "last three edges", (), ((U, R), (U, F), (U, L)),            const(8), directory + "mtd8.txt", const(95),  const(15)),
+        )
+
         print("INIT CUBE:\n%s" % (cube2strcolor(self.state)))
         self.rotate_U_to_U()
         self.rotate_F_to_F()
 
         original_state = self.state[:]
-        original_solution = self.solution [:]
+        prev_solution_len = 0
+        last_phase = const(8)
+        self.index_init_all()
 
-        # Find the rotation that has the lowest move count for the first 3 phases
-        (best_rotation, min_solution) = self._solve(original_state, original_solution, rotations_24, 3)
+        for (phase, desc, corners, edges, mtb, mtd, sz, mvm) in phases:
+            ref_index_init()
 
-        # Use that rotation to solve the entire cube
-        (_, min_solution) = self._solve(original_state, original_solution, (best_rotation, ), 9)
+            for corner in corners:
+                ref_index_corner(*corner)
 
-        self.solution = compress_solution(min_solution)
+            for edge in edges:
+                ref_index_edge(*edge)
+
+            if phase == last_phase:
+                ref_index_last()
+
+            ref_solve_phase(phase, desc, mtb, mtd, sz, mvm)
+            solution_len = len(self.solution)
+            self.solution.append("COMMENT phase %s: %s (%d steps)" % (
+                phase, desc, (solution_len - prev_solution_len)))
+            prev_solution_len = solution_len
+
+            # kociemba_string = self.get_kociemba_string()
+            # print("phase {} state {}".format(phase, kociemba_string))
+
+        self.solution = compress_solution(self.solution)
 
         print("FINAL CUBE:\n%s" % (cube2strcolor(self.state)))
         print(get_alg_cubing_net_url(self.solution))
@@ -990,6 +817,8 @@ class RubiksCube333(object):
         # Remove the comments from the solution
         self.solution = [x for x in self.solution if not x.startswith("COMMENT")]
 
+        # Put the cube back in the original state and apply the solution to
+        # make sure it solves the cube.
         self.verify_solution(original_state, self.solution)
 
         return self.solution

@@ -1,4 +1,129 @@
 
-- re-color the cube and see if you can find a shorter solution
-- use const()
-- do not load the movetables into memory, just binary search the file
+- Implement a X-phase solver OPTION 0
+    combine phases of the 9-phase solver into a 5-phase solver
+
+    - phase 1 does DF DR edges, phase 2 FR edge and DFR corner
+        - 24x22x20 x 24 is 253,440
+        - gives us a 2x2 block in the FRD corner
+        - this would average 6 moves which would be about a 4 move savings
+
+    - phase 3 does DB edge, phase 4 does RB edge and DRB corner, phase 5 DL edge
+        - 18x16x14 x 21 is 84,672
+        - 253440/(253440*84672) is 0.000 011
+        - use IDA* to build this table
+
+    - phase 6 does BL edge and DBL corner
+    - phase 7 does LF edge and DLF corner
+        - 12x10 x 18x15 is 32,400
+        - not sure how to build this table
+
+    - combine phases 8+9 of current solver by running all 124,416 states
+      through the kociemba solver. I think this would save 2 or 3 moves
+      so we would get this from ~21 down ~18.
+      Run these through an optimal solver?
+
+
+- Implement a X-phase solver OPTION 1
+
+    phase 1 white cross
+    - 24x22x20x18 = 190,080
+
+    phase 2 white corners
+    - 24x21x18x15 = 136,080
+    - one prune table of white cross
+    - one prune table of white corners
+    - IDA* all 136,080 scenarios
+        136080 * 190080 = 25,866,086,400
+        190080/(136080 * 190080) = 0.000 007
+
+    phase 3 second layer
+    - 16x14x12x10 = 26,880
+    - one prune table of white cross
+    - one prune table of white corners
+    - one prune table of second layer
+    - IDA* all 26,880 scenarios
+        136080 * 190080 * 26880 = 695,280,402,432,000
+        190080/(136080 * 190080 * 26880) = 0.000 000 000 273
+        This is not feasible
+        Maybe someone has already done this?
+        Could use the kociemba solver here but it would not be optimal.
+        What if you built the table but pruned off any branch that moved
+            a white edge to the third layer? Basically eliminate L2 F2 R2 B2.
+            The white cross prune table would be 26,880 at that point (instead of 190,080).
+            I think this would also reduce the white corners table. You could
+            try to build this just to see how much it explodes.
+
+    phase 4 last layer
+    - 12x9x6x8x6x4 = 124,416
+    - an option here is to use the kociemba solver to build this table
+    - this is the equivalent of phases 8+9 in today's 9-phase solver
+      We spend ~21 steps in phase8+9 today, combining them would
+      get this down to ~18 I think.
+
+
+- Implement a X-phase solver OPTION 2
+
+    phase 1 - EO the edges
+        - 2^11 or 2048 states
+
+    phase 2 - EO the corners
+        - 3^7 or 2187 states
+        - this will need to take care to not undo phase1
+
+    It might be possible to combine the first two phases
+    - 2048 * 2187 is 4,478,976
+
+    L L' R R' have been removed by this point
+    phase 3 - Remove F F' B B'
+        - LB LF RB RF edges must be staged to x-plane
+            12!/(8!*4!) is 495
+        - EO the corners again
+            2^7 is 128
+        - 128 * 495 is 63,360
+
+    At this point we have
+        - 4! or 24 for edges in x-plane
+        - 8! or 40320 for other edges
+        - 8! or 40320 for corners
+        - 24*40320*40320 is 39,016,857,600
+    So that would be too large of a phase
+
+    phase 4 - move 4 edges to y-plane
+        This in turn moves the other 4-edges to z-plane
+        There must also be some corner manipulation done here
+        - 8!/(4!*4!) is 70 for the edges
+        - 8!/(4!*4!) is 70 for the corners (I think)
+        - 70 * 70 is 4900
+
+    phase 5 - solve cube
+        - all quarter turns have been removed by this point
+        - (4!^3)/2 is 6912 for the edges
+        - 4!^2 is 576 for the corners
+            it is actually 96??
+
+        - 6912 * 96 is 663,552
+
+    lookup-table-3x3x3-step00-ultimate.txt
+    ======================================
+    0 steps has 1 entries (0 percent, 0.00x previous step)
+    1 steps has 6 entries (0 percent, 6.00x previous step)
+    2 steps has 27 entries (0 percent, 4.50x previous step)
+    3 steps has 120 entries (0 percent, 4.44x previous step)
+    4 steps has 519 entries (0 percent, 4.33x previous step)
+    5 steps has 1,932 entries (0 percent, 3.72x previous step)
+    6 steps has 6,484 entries (0 percent, 3.36x previous step)
+    7 steps has 20,310 entries (3 percent, 3.13x previous step)
+    8 steps has 55,034 entries (8 percent, 2.71x previous step)
+    9 steps has 113,892 entries (17 percent, 2.07x previous step)
+    10 steps has 178,495 entries (26 percent, 1.57x previous step)
+    11 steps has 179,196 entries (27 percent, 1.00x previous step)
+    12 steps has 89,728 entries (13 percent, 0.50x previous step)
+    13 steps has 16,176 entries (2 percent, 0.18x previous step)
+    14 steps has 1,488 entries (0 percent, 0.09x previous step)
+    15 steps has 144 entries (0 percent, 0.10x previous step)
+
+    Total: 663,552 entries
+    Average: 10.13 moves
+
+        This is 64M right now, I "might" be able to get this small enough to fit on SPIKE
+        Build just the edges table or just the corners table to figure out where your math is off.
