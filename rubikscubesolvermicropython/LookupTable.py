@@ -1,5 +1,4 @@
 import logging
-import resource
 
 
 log = logging.getLogger(__name__)
@@ -104,7 +103,7 @@ class LookupTable(object):
             tbd = False
 
         while True:
-            (state, _) = self.ida_heuristic()
+            state = self.state()
 
             if tbd:
                 log.info(
