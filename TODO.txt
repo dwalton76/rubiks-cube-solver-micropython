@@ -62,68 +62,40 @@
 
 
 - Implement a X-phase solver OPTION 2
+    This is going to average 29 moves....nice!!
 
-    phase 1 - EO the edges
-        - 2^11 or 2048 states
+    phase 1 - EO the edges and corners
+        - make the edges and corners solveable without L L' R R'
+        - (2^12)/2 or 2048 states
+        - (2^8)/2 or 128 states
+        - 2048 * 128 is 262,144 states
+        - averages 6.37 moves
 
-    phase 2 - EO the corners
-        - 3^7 or 2187 states
-        - this will need to take care to not undo phase1
-
-    It might be possible to combine the first two phases
-    - 2048 * 2187 is 4,478,976
-
-    L L' R R' have been removed by this point
-    phase 3 - Remove F F' B B'
+    phase 2 - Remove F F' B B'
         - LB LF RB RF edges must be staged to x-plane
             12!/(8!*4!) is 495
         - EO the corners again
-            2^7 is 128
+            - (2^8)/2 or 128 states
         - 128 * 495 is 63,360
+        - averages 6.42 moves
 
-    At this point we have
-        - 4! or 24 for edges in x-plane
-        - 8! or 40320 for other edges
-        - 8! or 40320 for corners
-        - 24*40320*40320 is 39,016,857,600
-    So that would be too large of a phase
-
-    phase 4 - move 4 edges to y-plane
-        This in turn moves the other 4-edges to z-plane
+    phase 3 - Remove U U' D D'
+        move 4 edges to y-plane, this in turn moves the other 4-edges to z-plane
         There must also be some corner manipulation done here
         - 8!/(4!*4!) is 70 for the edges
         - 8!/(4!*4!) is 70 for the corners (I think)
         - 70 * 70 is 4900
+        - averages 6.70 moves
 
     phase 5 - solve cube
         - all quarter turns have been removed by this point
         - (4!^3)/2 is 6912 for the edges
         - 4!^2 is 576 for the corners
-            it is actually 96??
+            it is actually 96 though (I got 96 by building the corners table)
+            576/6 is 96 not sure if that means anything
 
         - 6912 * 96 is 663,552
-
-    lookup-table-3x3x3-step00-ultimate.txt
-    ======================================
-    0 steps has 1 entries (0 percent, 0.00x previous step)
-    1 steps has 6 entries (0 percent, 6.00x previous step)
-    2 steps has 27 entries (0 percent, 4.50x previous step)
-    3 steps has 120 entries (0 percent, 4.44x previous step)
-    4 steps has 519 entries (0 percent, 4.33x previous step)
-    5 steps has 1,932 entries (0 percent, 3.72x previous step)
-    6 steps has 6,484 entries (0 percent, 3.36x previous step)
-    7 steps has 20,310 entries (3 percent, 3.13x previous step)
-    8 steps has 55,034 entries (8 percent, 2.71x previous step)
-    9 steps has 113,892 entries (17 percent, 2.07x previous step)
-    10 steps has 178,495 entries (26 percent, 1.57x previous step)
-    11 steps has 179,196 entries (27 percent, 1.00x previous step)
-    12 steps has 89,728 entries (13 percent, 0.50x previous step)
-    13 steps has 16,176 entries (2 percent, 0.18x previous step)
-    14 steps has 1,488 entries (0 percent, 0.09x previous step)
-    15 steps has 144 entries (0 percent, 0.10x previous step)
-
-    Total: 663,552 entries
-    Average: 10.13 moves
+        - averages 10.13 moves
 
         This is 64M right now, I "might" be able to get this small enough to fit on SPIKE
         Build just the edges table or just the corners table to figure out where your math is off.
