@@ -34,8 +34,7 @@ class LookupTable(object):
         else:
             self.state_target = set((state_target,))
 
-        # 'rb' mode is about 3x faster than 'r' mode
-        self.fh_txt = open(self.filename, mode="rb")
+        self.fh_txt = open(self.filename, mode="r")
 
     def __str__(self):
         return self.desc
@@ -43,23 +42,22 @@ class LookupTable(object):
     def binary_search(self, state_to_find):
         first = 0
         last = self.linecount - 1
-        state_to_find = bytes(state_to_find, encoding="utf-8")
 
         while first <= last:
             midpoint = int((first + last) / 2)
             self.fh_txt.seek(midpoint * self.width)
 
             # Only read the 'state' part of the line (for speed)
-            b_state = self.fh_txt.read(self.state_width)
+            state = self.fh_txt.read(self.state_width)
 
-            if state_to_find < b_state:
+            if state_to_find < state:
                 last = midpoint - 1
 
             # If this is the line we are looking for, then read the entire line
-            elif state_to_find == b_state:
+            elif state_to_find == state:
                 self.fh_txt.seek(midpoint * self.width)
                 line = self.fh_txt.read(self.width)
-                return line.decode("utf-8").rstrip()
+                return line.rstrip()
 
             else:
                 first = midpoint + 1
@@ -70,54 +68,32 @@ class LookupTable(object):
         """
         Return a list of the steps found in the lookup table for the current cube state
         """
-        assert state_to_find
-
-        # If we are at one of our state_targets we do not need to do anything
-        if state_to_find in self.state_target:
-            return None
-
         line = self.binary_search(state_to_find)
 
         if line:
             (state, steps) = line.strip().split(":")
+            print("state {}, steps {}".format(state, steps))
             steps_list = steps.split()
             return steps_list
 
-        return None
-
-    def steps_cost(self, state_to_find):
-        steps = self.steps(state_to_find)
-
-        if steps is None:
-            # log.info("%s: steps_cost None for %s (stage_target)" % (self, state_to_find))
-            return 0
-        else:
-            # log.info("%s: steps_cost %d for %s (%s)" % (self, len(steps), state_to_find, ' '.join(steps)))
-            return len(steps)
+        return []
 
     def solve(self):
+        state = self.state()
+        print("%s: solve() state %s vs state_target %s" % (self, state, str(self.state_target)))
 
-        if "TBD" in self.state_target:
-            tbd = True
+        if state in self.state_target:
+            return
+
+        steps = self.steps(state)
+
+        if steps:
+            for step in steps:
+                self.parent.rotate(step)
         else:
-            tbd = False
+            raise NoSteps("%s: state %s does not have steps" % (self, state))
 
-        while True:
-            state = self.state()
+        state = self.state()
 
-            if tbd:
-                log.info(
-                    "%s: solve() state %s vs state_target %s"
-                    % (self, state, str(self.state_target))
-                )
-
-            if state in self.state_target:
-                break
-
-            steps = self.steps(state)
-
-            if steps:
-                for step in steps:
-                    self.parent.rotate(step)
-            else:
-                raise NoSteps("%s: state %s does not have steps" % (self, state))
+        if state not in self.state_target:
+            raise Exception("{}: state {} is not in state_target {}".format(self, state, self.state_target))

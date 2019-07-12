@@ -68,28 +68,28 @@ def cube2str(cube):
         %s %s %s
         %s %s %s
 """ % (
-    cube[0], cube[1], cube[2], # U row 1
-    cube[3], cube[4], cube[5], # U row 2
-    cube[6], cube[7], cube[8], # U row 3
+    cube[1], cube[2], cube[3], # U row 1
+    cube[4], cube[5], cube[6], # U row 2
+    cube[7], cube[8], cube[9], # U row 3
 
-    cube[9], cube[10], cube[11],  # L row 1
-    cube[18], cube[19], cube[20], # F row 1
-    cube[27], cube[28], cube[29], # R row 1
-    cube[36], cube[37], cube[38], # B row 1
+    cube[10], cube[11], cube[12], # L row 1
+    cube[19], cube[20], cube[21], # F row 1
+    cube[28], cube[29], cube[30], # R row 1
+    cube[37], cube[38], cube[39], # B row 1
 
-    cube[12], cube[13], cube[14], # L row 2
-    cube[21], cube[22], cube[23], # F row 2
-    cube[30], cube[31], cube[32], # R row 2
-    cube[39], cube[40], cube[41], # B row 2
+    cube[13], cube[14], cube[15], # L row 2
+    cube[22], cube[23], cube[24], # F row 2
+    cube[31], cube[32], cube[33], # R row 2
+    cube[40], cube[41], cube[42], # B row 2
 
-    cube[15], cube[16], cube[17], # L row 3
-    cube[24], cube[25], cube[26], # F row 3
-    cube[33], cube[34], cube[35], # R row 3
-    cube[42], cube[43], cube[44], # B row 3
+    cube[16], cube[17], cube[18], # L row 3
+    cube[25], cube[26], cube[27], # F row 3
+    cube[34], cube[35], cube[36], # R row 3
+    cube[43], cube[44], cube[45], # B row 3
 
-    cube[45], cube[46], cube[47], # D row 1
-    cube[48], cube[49], cube[50], # D row 2
-    cube[51], cube[52], cube[53]  # D row 3
+    cube[46], cube[47], cube[48], # D row 1
+    cube[49], cube[50], cube[51], # D row 2
+    cube[52], cube[53], cube[54]  # D row 3
     )
 
 
@@ -304,6 +304,64 @@ def compress_solution(solution):
     return result
 
 
+'''
+EDGE_TUPLES = (
+    (2, 38),
+    (4, 11),
+    (6, 29),
+    (8, 20),
+    (13, 42),
+    (15, 22),
+    (31, 24),
+    (33, 40),
+    (47, 26),
+    (49, 17),
+    (51, 35),
+    (53, 44),
+)
+'''
+
+EDGE_TUPLES = (
+    ((2, 38), (38, 2)),
+    ((4, 11), (11, 4)),
+    ((6, 29), (29, 6)),
+    ((8, 20), (20, 8)),
+    ((13, 42), (42, 13)),
+    ((15, 22), (22, 15)),
+    ((31, 24), (24, 31)),
+    ((33, 40), (40, 33)),
+    ((47, 26), (26, 47)),
+    ((49, 17), (17, 49)),
+    ((51, 35), (35, 51)),
+    ((53, 44), (44, 53)),
+)
+
+
+'''
+CORNER_TUPLES = (
+    (1, 10, 39),
+    (3, 37, 30),
+    (7, 19, 12),
+    (9, 28, 21),
+    (46, 18, 25),
+    (48, 27, 34),
+    (52, 45, 16),
+    (54, 36, 43),
+)
+'''
+
+CORNER_TUPLES = (
+    ((1, 10, 39), (39, 1, 10), (10, 39, 1)),
+    ((3, 37, 30), (30, 3, 37), (37, 30, 3)),
+    ((7, 19, 12), (12, 7, 19), (19, 12, 7)),
+    ((9, 28, 21), (21, 9, 28), (28, 21, 9)),
+    ((46, 18, 25), (25, 46, 18), (18, 25, 46)),
+    ((48, 27, 34), (34, 48, 27), (27, 34, 48)),
+    ((52, 45, 16), (16, 52, 45), (45, 16, 52)),
+    ((54, 36, 43), (43, 54, 36), (36, 43, 54)),
+)
+
+
 class LookupTable333Phase1(LookupTable):
     """
     lookup-table-3x3x3-step110.txt
@@ -323,6 +381,50 @@ class LookupTable333Phase1(LookupTable):
     Average: 6.37 moves
     """
 
+    edge_states = {
+        (2, 38): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+        (4, 11): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+        (8, 20): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+        (6, 29): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+
+        (13, 42): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+        (15, 22): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+        (31, 24): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+        (33, 40): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+
+        (47, 26): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+        (49, 17): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+        (51, 35): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+        (53, 44): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+    }
+
+    corner_states = {
+        (37, 30, 3): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (36, 43, 54): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (43, 54, 36): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (54, 36, 43): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (1, 10, 39): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (10, 39, 1): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (39, 1, 10): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (48, 27, 34): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (27, 34, 48): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (16, 52, 45): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (45, 16, 52): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (52, 45, 16): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (21, 9, 28): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (9, 28, 21): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (18, 25, 46): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (46, 18, 25): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (28, 21, 9): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DRB'],
+        (34, 48, 27): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (25, 46, 18): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (7, 19, 12): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (19, 12, 7): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (12, 7, 19): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (3, 37, 30): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (30, 3, 37): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+    }
+
     def __init__(self, parent):
         LookupTable.__init__(
             self,
@@ -332,15 +434,45 @@ class LookupTable333Phase1(LookupTable):
             linecount=262144,
         )
 
-
     def state(self):
-        # dwalton stopped here
         # To build the state
         # - if an edge is in a state such that it can be 'solved' without L L' R R' then it is a 1, else it is a 0
         # - if a corner is in a state such that it can be 'solved' without L L' R R' then it is a 1, else it is a 0
         # - centers are unchanged
-        parent_state = self.parent.state
-        raise Exception("implement this")
+        state = self.parent.state[:]
+
+        for edge_position in EDGE_TUPLES:
+            for (e0, e1) in edge_position:
+                edge_str = state[e0] + state[e1]
+
+                if edge_str in self.edge_states.get((e0, e1), ()):
+                    state[e0] = "1"
+                    state[e1] = "1"
+                    break
+            else:
+                state[e0] = "0"
+                state[e1] = "0"
+
+        for corner_position in CORNER_TUPLES:
+            for (c0, c1, c2) in corner_position:
+                corner_str = state[c0] + state[c1] + state[c2]
+
+                if corner_str in self.corner_states.get((c0, c1, c2), ()):
+                    state[c0] = "1"
+                    state[c1] = "1"
+                    state[c2] = "1"
+                    break
+            else:
+                state[c0] = "0"
+                state[c1] = "0"
+                state[c2] = "0"
+
+        r = range(1, 55)
+        result = "".join([state[x] for x in r])
+        #print(result)
+        #import sys
+        #sys.exit(0)
+        return result
 
 
 class LookupTable333Phase2(LookupTable):
@@ -361,23 +493,90 @@ class LookupTable333Phase2(LookupTable):
     Average: 6.42 moves
     """
 
+    edge_states = {
+        (2, 38): ['UB', 'UL', 'UR', 'UF', 'DB', 'DL', 'DR', 'DF'],
+        (4, 11): ['UB', 'UL', 'UR', 'UF', 'DB', 'DL', 'DR', 'DF'],
+        (6, 29): ['UB', 'UL', 'UR', 'UF', 'DB', 'DL', 'DR', 'DF'],
+        (8, 20): ['UB', 'UL', 'UR', 'UF', 'DB', 'DL', 'DR', 'DF'],
+
+        (13, 42): ['LB', 'LF', 'RB', 'RF'],
+        (15, 22): ['LB', 'LF', 'RB', 'RF'],
+        (31, 24): ['LB', 'LF', 'RB', 'RF'],
+        (33, 40): ['LB', 'LF', 'RB', 'RF'],
+
+        (47, 26): ['UB', 'UL', 'UR', 'UF', 'DB', 'DL', 'DR', 'DF'],
+        (49, 17): ['UB', 'UL', 'UR', 'UF', 'DB', 'DL', 'DR', 'DF'],
+        (51, 35): ['UB', 'UL', 'UR', 'UF', 'DB', 'DL', 'DR', 'DF'],
+        (53, 44): ['UB', 'UL', 'UR', 'UF', 'DB', 'DL', 'DR', 'DF'],
+    }
+
+    corner_states = {
+        (1, 10, 39): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (3, 37, 30): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (7, 19, 12): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (9, 28, 21): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (46, 18, 25): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (48, 27, 34): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (52, 45, 16): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+        (54, 36, 43): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
+    }
+
     def __init__(self, parent):
         LookupTable.__init__(
             self,
             parent,
             directory + "lookup-table-3x3x3-step120.txt",
-            "TBD",
+            "1x1xUx1x11x1LLL1x11x1LFL1x11x1LRL1x11x1LBL1x11x1xDx1x1",
             linecount=63360,
         )
 
+    # dwalton stopped here
     def state(self):
         # To build the state
         # - if an edge is in a state such that it can be 'solved' without L L' R R' F F' B B' then it is a 1, else it is a 0
         # - if a corner is in a state such that it can be 'solved' without L L' R R' F F' B B' then it is a 1, else it is a 0
         # - centers are unchanged
         # - we also stage the LB LF RB RF edges to the x-plane here, treat all of those edges as "L"s
-        parent_state = self.parent.state
-        raise Exception("implement this")
+        state = self.parent.state[:]
+        X_PLANE_EDGES = ("LB", "LF", "RB", "RF")
+
+        for edge_position in EDGE_TUPLES:
+            for (e0, e1) in edge_position:
+                edge_str = state[e0] + state[e1]
+
+                if edge_str in X_PLANE_EDGES:
+                    state[e0] = "L"
+                    state[e1] = "L"
+                    break
+
+                #if edge_str in self.edge_states.get((e0, e1), ()):
+                #    state[e0] = "1"
+                #    state[e1] = "1"
+                #    break
+            else:
+                state[e0] = "x"
+                state[e1] = "x"
+
+        for corner_position in CORNER_TUPLES:
+            for (c0, c1, c2) in corner_position:
+                corner_str = state[c0] + state[c1] + state[c2]
+
+                if corner_str in self.corner_states.get((c0, c1, c2), ()):
+                    state[c0] = "1"
+                    state[c1] = "1"
+                    state[c2] = "1"
+                    break
+            else:
+                state[c0] = "0"
+                state[c1] = "0"
+                state[c2] = "0"
+
+        r = range(1, 55)
+        result = "".join([state[x] for x in r])
+        #print(result)
+        #import sys
+        #sys.exit(0)
+        return result
 
 
 class LookupTable333Phase3(LookupTable):
@@ -453,7 +652,8 @@ class LookupTable333Phase4(LookupTable):
 
     def state(self):
         parent_state = self.parent.state
-        raise Exception("implement this")
+        r = range(1, 55)
+        return "".join([parent_state[x] for x in r])
 
 
 class RubiksCube333(object):
@@ -463,31 +663,6 @@ class RubiksCube333(object):
 
     def __init__(self, state, order):
         SQUARES_PER_SIDE = 9
-        self.FACELET_COUNT = SQUARES_PER_SIDE * 6
-
-        '''
-        self.solution = []
-        self.state = ["dummy"]
-        state = list(state)
-
-        if order == 'URFDLB':
-            self.state.extend(state[0:SQUARES_PER_SIDE])                            # U
-            self.state.extend(state[(SQUARES_PER_SIDE * 4):(SQUARES_PER_SIDE * 5)]) # L
-            self.state.extend(state[(SQUARES_PER_SIDE * 2):(SQUARES_PER_SIDE * 3)]) # F
-            self.state.extend(state[(SQUARES_PER_SIDE * 1):(SQUARES_PER_SIDE * 2)]) # R
-            self.state.extend(state[(SQUARES_PER_SIDE * 5):(SQUARES_PER_SIDE * 6)]) # B
-            self.state.extend(state[(SQUARES_PER_SIDE * 3):(SQUARES_PER_SIDE * 4)]) # D
-        elif order == 'ULFRBD':
-            self.state.extend(state[0:SQUARES_PER_SIDE])                            # U
-            self.state.extend(state[(SQUARES_PER_SIDE * 1):(SQUARES_PER_SIDE * 2)]) # L
-            self.state.extend(state[(SQUARES_PER_SIDE * 2):(SQUARES_PER_SIDE * 3)]) # F
-            self.state.extend(state[(SQUARES_PER_SIDE * 3):(SQUARES_PER_SIDE * 4)]) # R
-            self.state.extend(state[(SQUARES_PER_SIDE * 4):(SQUARES_PER_SIDE * 5)]) # B
-            self.state.extend(state[(SQUARES_PER_SIDE * 5):(SQUARES_PER_SIDE * 6)]) # D
-        else:
-            raise Exception("Add support for order %s" % order)
-        '''
-
         foo = []
         init_state = ["dummy"]
         init_state.extend(list(state))
