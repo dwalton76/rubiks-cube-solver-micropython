@@ -177,23 +177,34 @@ def get_states_for_illegal_moves(illegal_moves):
     return (edge_states, corner_states)
 
 
+def dict2str(data):
+    result = ["{"]
+    keys = sorted(data.keys())
+    for key in keys:
+        result.append("    {}: {}".format(key, data[key]))
+    result.append("}" + " # {} keys".format(len(keys)))
+    return "\n".join(result)
+
 if __name__ == "__main__":
     cube = RubiksCube333("UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB", "URFDLB")
     #nuke_corners(cube)
     #nuke_edges(cube)
     #print(cube2str(cube.state))
 
+    # we find 24 corner keys here, that means you can get to any corner state
+    '''
     illegal_moves = ("L", "L'", "R", "R'")
     (phase1_edge_states, phase1_corner_states) = get_states_for_illegal_moves(illegal_moves)
-    print("phase1_edge_states = \n{}\n".format(phase1_edge_states))
-    print("phase1_corner_states = \n{}\n".format(phase1_corner_states))
+    #print("phase1_edge_states = \n{}\n".format(phase1_edge_states))
+    print("phase1_corner_states = \n{}\n".format(dict2str(phase1_corner_states)))
 
     illegal_moves = ("L", "L'", "R", "R'", "F", "F'", "B", "B'")
     (phase2_edge_states, phase2_corner_states) = get_states_for_illegal_moves(illegal_moves)
-    print("phase2_edge_states = \n{}\n".format(phase2_edge_states))
-    print("phase2_corner_states = \n{}\n".format(phase2_corner_states))
+    #print("phase2_edge_states = \n{}\n".format(phase2_edge_states))
+    print("phase2_corner_states = \n{}\n".format(dict2str(phase2_corner_states)))
+    '''
 
     illegal_moves = ("L", "L'", "R", "R'", "F", "F'", "B", "B'", "U", "U'", "D", "D'")
     (phase3_edge_states, phase3_corner_states) = get_states_for_illegal_moves(illegal_moves)
-    print("phase3_edge_states = \n{}\n".format(phase3_edge_states))
-    print("phase3_corner_states = \n{}\n".format(phase3_corner_states))
+    print("phase3_edge_states = \n{}\n".format(dict2str(phase3_edge_states)))
+    print("phase3_corner_states = \n{}\n".format(dict2str(phase3_corner_states)))

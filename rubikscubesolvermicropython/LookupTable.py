@@ -91,7 +91,7 @@ class LookupTable(object):
             for step in steps:
                 self.parent.rotate(step)
         else:
-            raise NoSteps("%s: state %s does not have steps" % (self, state))
+            raise NoSteps("%s: state %s does not have steps in %s" % (self, state, self.filename))
 
         state = self.state()
 

@@ -6,13 +6,23 @@ from rubikscubesolvermicropython.LookupTable import LookupTable
 directory = "/".join(__file__.split("/")[:-1]) + "/"
 
 kociemba_sequence = (
-    0, 1, 2, 3, 4, 5, 6, 7, 8, # U
-    27, 28, 29, 30, 31, 32, 33, 34, 35, # R
-    18, 19, 20, 21, 22, 23, 24, 25, 26, # F
-    45, 46, 47, 48, 49, 50, 51, 52, 53, # D
-    9, 10, 11, 12, 13, 14, 15, 16, 17, # L
-    36, 37, 38, 39, 40, 41, 42, 43, 44, # B
+    1, 2, 3, 4, 5, 6, 7, 8, 9,  # U
+    28, 29, 30, 31, 32, 33, 34, 35, 36, # R
+    19, 20, 21, 22, 23, 24, 25, 26, 27, # F
+    46, 47, 48, 49, 50, 51, 52, 53, 54, # D
+    10, 11, 12, 13, 14, 15, 16, 17, 18, # L
+    37, 38, 39, 40, 41, 42, 43, 44, 45, # B
 )
+
+CORNERS = (
+    1, 3,  7,  9,   
+    10, 12, 16, 18,  
+    19, 21, 25, 27,  
+    28, 30, 34, 36,  
+    37, 39, 43, 45,  
+    46, 48, 52, 54,  
+)
+
 
 # facelet swaps for 3x3x3 moves
 swaps_333 = {
@@ -304,23 +314,6 @@ def compress_solution(solution):
     return result
 
 
-'''
-EDGE_TUPLES = (
-    (2, 38),
-    (4, 11),
-    (6, 29),
-    (8, 20),
-    (13, 42),
-    (15, 22),
-    (31, 24),
-    (33, 40),
-    (47, 26),
-    (49, 17),
-    (51, 35),
-    (53, 44),
-)
-'''
-
 EDGE_TUPLES = (
     ((2, 38), (38, 2)),
     ((4, 11), (11, 4)),
@@ -336,19 +329,6 @@ EDGE_TUPLES = (
     ((53, 44), (44, 53)),
 )
 
-
-'''
-CORNER_TUPLES = (
-    (1, 10, 39),
-    (3, 37, 30),
-    (7, 19, 12),
-    (9, 28, 21),
-    (46, 18, 25),
-    (48, 27, 34),
-    (52, 45, 16),
-    (54, 36, 43),
-)
-'''
 
 CORNER_TUPLES = (
     ((1, 10, 39), (39, 1, 10), (10, 39, 1)),
@@ -368,17 +348,15 @@ class LookupTable333Phase1(LookupTable):
     ==============================
     0 steps has 1 entries (0 percent, 0.00x previous step)
     1 steps has 2 entries (0 percent, 2.00x previous step)
-    2 steps has 25 entries (0 percent, 12.50x previous step)
-    3 steps has 296 entries (0 percent, 11.84x previous step)
-    4 steps has 3,082 entries (1 percent, 10.41x previous step)
-    5 steps has 24,554 entries (9 percent, 7.97x previous step)
-    6 steps has 111,908 entries (42 percent, 4.56x previous step)
-    7 steps has 116,646 entries (44 percent, 1.04x previous step)
-    8 steps has 5,629 entries (2 percent, 0.05x previous step)
-    9 steps has 1 entries (0 percent, 0.00x previous step)
+    2 steps has 25 entries (1 percent, 12.50x previous step)
+    3 steps has 202 entries (9 percent, 8.08x previous step)
+    4 steps has 620 entries (30 percent, 3.07x previous step)
+    5 steps has 900 entries (43 percent, 1.45x previous step)
+    6 steps has 285 entries (13 percent, 0.32x previous step)
+    7 steps has 13 entries (0 percent, 0.05x previous step)
 
-    Total: 262,144 entries
-    Average: 6.37 moves
+    Total: 2,048 entries
+    Average: 4.61 moves
     """
 
     edge_states = {
@@ -398,40 +376,13 @@ class LookupTable333Phase1(LookupTable):
         (53, 44): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
     }
 
-    corner_states = {
-        (37, 30, 3): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (36, 43, 54): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (43, 54, 36): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (54, 36, 43): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (1, 10, 39): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (10, 39, 1): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (39, 1, 10): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (48, 27, 34): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (27, 34, 48): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (16, 52, 45): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (45, 16, 52): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (52, 45, 16): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (21, 9, 28): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (9, 28, 21): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (18, 25, 46): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (46, 18, 25): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (28, 21, 9): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DRB'],
-        (34, 48, 27): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (25, 46, 18): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (7, 19, 12): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (19, 12, 7): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (12, 7, 19): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (3, 37, 30): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (30, 3, 37): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-    }
-
     def __init__(self, parent):
         LookupTable.__init__(
             self,
             parent,
             directory + "lookup-table-3x3x3-step110.txt",
-            "1111U11111111L11111111F11111111R11111111B11111111D1111",
-            linecount=262144,
+            "x1x1U1x1xx1x1L1x1xx1x1F1x1xx1x1R1x1xx1x1B1x1xx1x1D1x1x",
+            linecount=2048,
         )
 
     def state(self):
@@ -453,25 +404,11 @@ class LookupTable333Phase1(LookupTable):
                 state[e0] = "0"
                 state[e1] = "0"
 
-        for corner_position in CORNER_TUPLES:
-            for (c0, c1, c2) in corner_position:
-                corner_str = state[c0] + state[c1] + state[c2]
-
-                if corner_str in self.corner_states.get((c0, c1, c2), ()):
-                    state[c0] = "1"
-                    state[c1] = "1"
-                    state[c2] = "1"
-                    break
-            else:
-                state[c0] = "0"
-                state[c1] = "0"
-                state[c2] = "0"
+        for x in CORNERS:
+            state[x] = "x"
 
         r = range(1, 55)
         result = "".join([state[x] for x in r])
-        #print(result)
-        #import sys
-        #sys.exit(0)
         return result
 
 
@@ -483,14 +420,16 @@ class LookupTable333Phase2(LookupTable):
     1 steps has 2 entries (0 percent, 2.00x previous step)
     2 steps has 17 entries (0 percent, 8.50x previous step)
     3 steps has 134 entries (0 percent, 7.88x previous step)
-    4 steps has 1,021 entries (1 percent, 7.62x previous step)
-    5 steps has 6,154 entries (9 percent, 6.03x previous step)
-    6 steps has 23,995 entries (37 percent, 3.90x previous step)
-    7 steps has 28,908 entries (45 percent, 1.20x previous step)
-    8 steps has 3,128 entries (4 percent, 0.11x previous step)
+    4 steps has 1,065 entries (0 percent, 7.95x previous step)
+    5 steps has 8,190 entries (0 percent, 7.69x previous step)
+    6 steps has 54,694 entries (5 percent, 6.68x previous step)
+    7 steps has 267,576 entries (24 percent, 4.89x previous step)
+    8 steps has 560,568 entries (51 percent, 2.09x previous step)
+    9 steps has 187,204 entries (17 percent, 0.33x previous step)
+    10 steps has 3,114 entries (0 percent, 0.02x previous step)
 
-    Total: 63,360 entries
-    Average: 6.42 moves
+    Total: 1,082,565 entries
+    Average: 7.80 moves
     """
 
     edge_states = {
@@ -510,27 +449,15 @@ class LookupTable333Phase2(LookupTable):
         (53, 44): ['UB', 'UL', 'UR', 'UF', 'DB', 'DL', 'DR', 'DF'],
     }
 
-    corner_states = {
-        (1, 10, 39): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (3, 37, 30): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (7, 19, 12): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (9, 28, 21): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (46, 18, 25): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (48, 27, 34): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (52, 45, 16): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-        (54, 36, 43): ['ULB', 'UBR', 'UFL', 'URF', 'DLF', 'DFR', 'DBL', 'DRB'],
-    }
-
     def __init__(self, parent):
         LookupTable.__init__(
             self,
             parent,
             directory + "lookup-table-3x3x3-step120.txt",
-            "1x1xUx1x11x1LLL1x11x1LFL1x11x1LRL1x11x1LBL1x11x1xDx1x1",
-            linecount=63360,
+            "UxUxUxUxUxxx1L1xxxxxx1F1xxxxxx1R1xxxxxx1B1xxxUxUxDxUxU",
+            linecount=1082565,
         )
 
-    # dwalton stopped here
     def state(self):
         # To build the state
         # - if an edge is in a state such that it can be 'solved' without L L' R R' F F' B B' then it is a 1, else it is a 0
@@ -538,45 +465,34 @@ class LookupTable333Phase2(LookupTable):
         # - centers are unchanged
         # - we also stage the LB LF RB RF edges to the x-plane here, treat all of those edges as "L"s
         state = self.parent.state[:]
-        X_PLANE_EDGES = ("LB", "LF", "RB", "RF")
+        X_PLANE_EDGES = ("LB", "BL", "LF", "FL", "RB", "BR", "RF", "FR")
 
         for edge_position in EDGE_TUPLES:
             for (e0, e1) in edge_position:
                 edge_str = state[e0] + state[e1]
 
                 if edge_str in X_PLANE_EDGES:
-                    state[e0] = "L"
-                    state[e1] = "L"
+                    if edge_str in self.edge_states.get((e0, e1), ()):
+                        state[e0] = "1"
+                        state[e1] = "1"
+                        break
+                else:
+                    state[e0] = "x"
+                    state[e1] = "x"
                     break
 
-                #if edge_str in self.edge_states.get((e0, e1), ()):
-                #    state[e0] = "1"
-                #    state[e1] = "1"
-                #    break
             else:
-                state[e0] = "x"
-                state[e1] = "x"
+                state[e0] = "0"
+                state[e1] = "0"
 
-        for corner_position in CORNER_TUPLES:
-            for (c0, c1, c2) in corner_position:
-                corner_str = state[c0] + state[c1] + state[c2]
-
-                if corner_str in self.corner_states.get((c0, c1, c2), ()):
-                    state[c0] = "1"
-                    state[c1] = "1"
-                    state[c2] = "1"
-                    break
+        for x in CORNERS:
+            if state[x] == "U" or state[x] == "D":
+                state[x] = "U"
             else:
-                state[c0] = "0"
-                state[c1] = "0"
-                state[c2] = "0"
+                state[x] = "x"
 
         r = range(1, 55)
-        result = "".join([state[x] for x in r])
-        #print(result)
-        #import sys
-        #sys.exit(0)
-        return result
+        return "".join([state[x] for x in r])
 
 
 class LookupTable333Phase3(LookupTable):
@@ -598,12 +514,38 @@ class LookupTable333Phase3(LookupTable):
     Average: 6.70 moves
     """
 
+    edge_states = {
+        (2, 38): ['UB', 'UF', 'DB', 'DF'],
+        (4, 11): ['UL', 'UR', 'DL', 'DR'],
+        (6, 29): ['UL', 'UR', 'DL', 'DR'],
+        (8, 20): ['UB', 'UF', 'DB', 'DF'],
+        (13, 42): ['LB', 'LF', 'RB', 'RF'],
+        (15, 22): ['LB', 'LF', 'RB', 'RF'],
+        (31, 24): ['LB', 'LF', 'RB', 'RF'],
+        (33, 40): ['LB', 'LF', 'RB', 'RF'],
+        (47, 26): ['UB', 'UF', 'DB', 'DF'],
+        (49, 17): ['UL', 'UR', 'DL', 'DR'],
+        (51, 35): ['UL', 'UR', 'DL', 'DR'],
+        (53, 44): ['UB', 'UF', 'DB', 'DF'],
+    }
+    
+    corner_states = {
+        (1, 10, 39): ['ULB', 'URF', 'DLF', 'DRB'],
+        (3, 37, 30): ['UBR', 'UFL', 'DFR', 'DBL'],
+        (7, 19, 12): ['UBR', 'UFL', 'DFR', 'DBL'],
+        (9, 28, 21): ['ULB', 'URF', 'DLF', 'DRB'],
+        (46, 18, 25): ['ULB', 'URF', 'DLF', 'DRB'],
+        (48, 27, 34): ['UBR', 'UFL', 'DFR', 'DBL'],
+        (52, 45, 16): ['UBR', 'UFL', 'DFR', 'DBL'],
+        (54, 36, 43): ['ULB', 'URF', 'DLF', 'DRB'],
+    }
+
     def __init__(self, parent):
         LookupTable.__init__(
             self,
             parent,
             directory + "lookup-table-3x3x3-step130.txt",
-            "TBD",
+            "DFUxUxUFDDxUxLxUxDUFDxFxDFUDxUxRxUxDUFDxBxDFUDFUxDxUFD",
             linecount=4900,
         )
 
@@ -612,8 +554,45 @@ class LookupTable333Phase3(LookupTable):
         # - if a corner is in a state such that it can be 'solved' without L L' R R' F F' B B' U U' D D'then it is a 1, else it is a 0
         # - centers are unchanged
         # - we also stage the UF UB DF DB edges to the y-plane here, treat all of those edges as "F"s
-        parent_state = self.parent.state
-        raise Exception("implement this")
+        state = self.parent.state[:]
+        Y_PLANE_EDGES = (
+            "UF", "UB", "DF", "DB",
+            # "FU", "BU", "FD", "BD",
+        )
+
+        for edge_position in EDGE_TUPLES:
+            for (e0, e1) in edge_position:
+                edge_str = state[e0] + state[e1]
+
+                if edge_str in Y_PLANE_EDGES:
+                    state[e0] = "F"
+                    state[e1] = "F"
+                else:
+                    state[e0] = "x"
+                    state[e1] = "x"
+                break
+
+        CORNER_GROUP_1 = ("UFL", "UBR", "DFR", "DBL")
+
+        for corner_position in CORNER_TUPLES:
+            for (c0, c1, c2) in corner_position:
+                corner_str = state[c0] + state[c1] + state[c2]
+
+                if corner_str in CORNER_GROUP_1:
+                    state[c0] = "U"
+                    state[c1] = "U"
+                    state[c2] = "U"
+                else:
+                    state[c0] = "D"
+                    state[c1] = "D"
+                    state[c2] = "D"
+                break
+
+        #print(cube2strcolor(self.parent.state))
+        #print(cube2strcolor(state))
+        #print(result)
+        r = range(1, 55)
+        return "".join([state[x] for x in r])
 
 
 class LookupTable333Phase4(LookupTable):
@@ -646,7 +625,7 @@ class LookupTable333Phase4(LookupTable):
             self,
             parent,
             directory + "lookup-table-3x3x3-step140.txt",
-            "TBD",
+            "UUUUUUUUULLLLLLLLLFFFFFFFFFRRRRRRRRRBBBBBBBBBDDDDDDDDD",
             linecount=663552,
         )
 
@@ -741,20 +720,20 @@ class RubiksCube333(object):
         """
 
         if y == "U":
-            pos_to_check = 4
+            pos_to_check = 5
         elif y == "L":
-            pos_to_check = 13
+            pos_to_check = 14
         elif y == "F":
-            pos_to_check = 22
+            pos_to_check = 23
         elif y == "R":
-            pos_to_check = 31
+            pos_to_check = 32
         elif y == "B":
-            pos_to_check = 40
+            pos_to_check = 41
         elif y == "D":
-            pos_to_check = 49
+            pos_to_check = 50
 
-        F_pos_to_check = 22
-        D_pos_to_check = 49
+        F_pos_to_check = 23
+        D_pos_to_check = 50
 
         while self.state[pos_to_check] != x:
 
@@ -822,20 +801,37 @@ class RubiksCube333(object):
         original_solution= self.solution[:]
 
         self.lt_phase1.solve()
+        # dwalton
+        solution_len = get_solution_len(self.solution)
+        self.solution.append("COMMENT phase 1: EO edges ({} steps)".format(solution_len))
+        prev_solution_len = solution_len
         print(cube2strcolor(self.state))
-        print("phase1 complete, {} steps in".format(get_solution_len(self.solution)))
+        print("phase1 complete, {} steps in".format(solution_len))
+        print("\n\n\n\n\n\n")
 
         self.lt_phase2.solve()
+        solution_len = get_solution_len(self.solution)
+        self.solution.append("COMMENT phase 2: ({} steps)".format(solution_len - prev_solution_len))
+        prev_solution_len = solution_len
         print(cube2strcolor(self.state))
-        print("phase2 complete, {} steps in".format(get_solution_len(self.solution)))
+        print("phase2 complete, {} steps in".format(solution_len))
+        print("\n\n\n\n\n\n")
 
         self.lt_phase3.solve()
+        solution_len = get_solution_len(self.solution)
+        self.solution.append("COMMENT phase 3: ({} steps)".format(solution_len - prev_solution_len))
+        prev_solution_len = solution_len
         print(cube2strcolor(self.state))
-        print("phase3 complete, {} steps in".format(get_solution_len(self.solution)))
+        print("phase3 complete, {} steps in".format(solution_len))
+        print("\n\n\n\n\n\n")
 
         self.lt_phase4.solve()
+        solution_len = get_solution_len(self.solution)
+        self.solution.append("COMMENT phase 4: ({} steps)".format(solution_len - prev_solution_len))
+        prev_solution_len = solution_len
         print(cube2strcolor(self.state))
-        print("phase4 complete, {} steps in".format(get_solution_len(self.solution)))
+        print("phase4 complete, {} steps in".format(solution_len))
+        print("\n\n\n\n\n\n")
 
         print("FINAL CUBE:\n%s" % (cube2strcolor(self.state)))
         self.solution = compress_solution(self.solution)
