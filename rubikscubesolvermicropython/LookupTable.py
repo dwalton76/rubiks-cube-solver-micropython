@@ -72,7 +72,7 @@ class LookupTable(object):
 
         if line:
             (state, steps) = line.strip().split(":")
-            print("state {}, steps {}".format(state, steps))
+            # print("state {}, steps {}".format(state, steps))
             steps_list = steps.split()
             return steps_list
 
@@ -80,7 +80,7 @@ class LookupTable(object):
 
     def solve(self):
         state = self.state()
-        print("%s: solve() state %s vs state_target %s" % (self, state, str(self.state_target)))
+        # print("%s: solve() state %s vs state_target %s" % (self, state, str(self.state_target)))
 
         if state in self.state_target:
             return

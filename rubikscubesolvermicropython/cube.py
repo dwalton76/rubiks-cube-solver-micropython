@@ -7,22 +7,32 @@ directory = "/".join(__file__.split("/")[:-1]) + "/"
 
 kociemba_sequence = (
     1, 2, 3, 4, 5, 6, 7, 8, 9,  # U
-    28, 29, 30, 31, 32, 33, 34, 35, 36, # R
-    19, 20, 21, 22, 23, 24, 25, 26, 27, # F
-    46, 47, 48, 49, 50, 51, 52, 53, 54, # D
-    10, 11, 12, 13, 14, 15, 16, 17, 18, # L
-    37, 38, 39, 40, 41, 42, 43, 44, 45, # B
+    28, 29, 30, 31, 32, 33, 34, 35, 36,  # R
+    19, 20, 21, 22, 23, 24, 25, 26, 27,  # F
+    46, 47, 48, 49, 50, 51, 52, 53, 54,  # D
+    10, 11, 12, 13, 14, 15, 16, 17, 18,  # L
+    37, 38, 39, 40, 41, 42, 43, 44, 45,  # B
+)
+
+EDGES = (
+    2, 4, 6, 8,  # U
+    11, 13, 15, 17,  # L
+    20, 22, 24, 26,  # F
+    29, 31, 33, 35,  # R
+    38, 40, 42, 44,  # B
+    47, 49, 51, 53,  # D
 )
 
 CORNERS = (
-    1, 3,  7,  9,   
-    10, 12, 16, 18,  
-    19, 21, 25, 27,  
-    28, 30, 34, 36,  
-    37, 39, 43, 45,  
-    46, 48, 52, 54,  
+    1, 3, 7, 9,
+    10, 12, 16, 18,
+    19, 21, 25, 27,
+    28, 30, 34, 36,
+    37, 39, 43, 45,
+    46, 48, 52, 54,
 )
 
+FULL_CUBE_ROTATES = set(("x", "x'", "x2", "y", "y'", "y2", "z", "z'", "z2"))
 
 # facelet swaps for 3x3x3 moves
 swaps_333 = {
@@ -54,6 +64,7 @@ swaps_333 = {
     "z'": (0, 30, 33, 36, 29, 32, 35, 28, 31, 34, 3, 6, 9, 2, 5, 8, 1, 4, 7, 21, 24, 27, 20, 23, 26, 19, 22, 25, 48, 51, 54, 47, 50, 53, 46, 49, 52, 43, 40, 37, 44, 41, 38, 45, 42, 39, 12, 15, 18, 11, 14, 17, 10, 13, 16),
     "z2": (0, 54, 53, 52, 51, 50, 49, 48, 47, 46, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 45, 44, 43, 42, 41, 40, 39, 38, 37, 9, 8, 7, 6, 5, 4, 3, 2, 1),
 }
+
 
 def print_mem_stats(desc):
     import gc
@@ -137,8 +148,6 @@ def get_alg_cubing_net_url(solution):
     url = url.replace(" ", "_")
     return url
 
-
-FULL_CUBE_ROTATES = set(("x", "x'", "x2", "y", "y'", "y2", "z", "z'", "z2"))
 
 # @timed_function
 def get_solution_len(solution):
@@ -341,6 +350,40 @@ CORNER_TUPLES = (
     ((54, 36, 43), (43, 54, 36), (36, 43, 54)),
 )
 
+'''
+This should average 31 moves
+
+phase 1 - EO the edges
+    - make the edges solveable without L L' R R'
+    - (2^12)/2 or 2048 states
+    - averages 4.61 moves
+
+phase 2 - Remove F F' B B'
+    - LB LF RB RF edges must be staged to x-plane
+        12!/(8!*4!) is 495
+    - Stage the UD corners (color all of the U or D corner squares as U)
+        - (3^8)/3 or 2187 states
+    - 495 * 2187 is 1,082,565 states
+    - averages 7.80 moves
+
+phase 3 - Remove U U' D D'
+    move 4 edges to y-plane, this in turn moves the other 4-edges to z-plane
+    There must also be some corner manipulation done here
+    - 8!/(4!*4!) is 70 for the edges
+    - 40,320 for the corners
+    - 70 * 40,320 is 2,822,400
+    - averages 8.70 moves
+
+phase 4 - solve cube
+    - all quarter turns have been removed by this point
+    - (4!^3)/2 is 6912 for the edges
+    - 4!^2 is 576 for the corners
+        it is actually 96 though (I got 96 by building the corners table)
+        576/6 is 96...not sure if that means anything
+
+    - 6912 * 96 is 663,552
+    - averages 10.13 moves
+'''
 
 class LookupTable333Phase1(LookupTable):
     """
@@ -499,54 +542,131 @@ class LookupTable333Phase3(LookupTable):
     """
     lookup-table-3x3x3-step130.txt
     ==============================
-    0 steps has 1 entries (0 percent, 0.00x previous step)
-    1 steps has 2 entries (0 percent, 2.00x previous step)
-    2 steps has 9 entries (0 percent, 4.50x previous step)
-    3 steps has 36 entries (0 percent, 4.00x previous step)
-    4 steps has 124 entries (2 percent, 3.44x previous step)
-    5 steps has 426 entries (8 percent, 3.44x previous step)
-    6 steps has 1,238 entries (25 percent, 2.91x previous step)
-    7 steps has 1,924 entries (39 percent, 1.55x previous step)
-    8 steps has 1,056 entries (21 percent, 0.55x previous step)
-    9 steps has 84 entries (1 percent, 0.08x previous step)
+    0 steps has 13 entries (0 percent, 0.00x previous step)
+    1 steps has 275 entries (0 percent, 21.15x previous step)
+    2 steps has 864 entries (0 percent, 3.14x previous step)
+    3 steps has 3,456 entries (0 percent, 4.00x previous step)
+    4 steps has 11,904 entries (0 percent, 3.44x previous step)
+    5 steps has 50,880 entries (1 percent, 4.27x previous step)
+    6 steps has 173,376 entries (6 percent, 3.41x previous step)
+    7 steps has 358,272 entries (12 percent, 2.07x previous step)
+    8 steps has 495,168 entries (17 percent, 1.38x previous step)
+    9 steps has 678,720 entries (24 percent, 1.37x previous step)
+    10 steps has 692,928 entries (24 percent, 1.02x previous step)
+    11 steps has 307,392 entries (10 percent, 0.44x previous step)
+    12 steps has 46,848 entries (1 percent, 0.15x previous step)
+    13 steps has 2,304 entries (0 percent, 0.05x previous step)
 
-    Total: 4,900 entries
-    Average: 6.70 moves
+    Total: 2,822,400 entries
+    Average: 8.80 moves
     """
 
-    edge_states = {
-        (2, 38): ['UB', 'UF', 'DB', 'DF'],
-        (4, 11): ['UL', 'UR', 'DL', 'DR'],
-        (6, 29): ['UL', 'UR', 'DL', 'DR'],
-        (8, 20): ['UB', 'UF', 'DB', 'DF'],
-        (13, 42): ['LB', 'LF', 'RB', 'RF'],
-        (15, 22): ['LB', 'LF', 'RB', 'RF'],
-        (31, 24): ['LB', 'LF', 'RB', 'RF'],
-        (33, 40): ['LB', 'LF', 'RB', 'RF'],
-        (47, 26): ['UB', 'UF', 'DB', 'DF'],
-        (49, 17): ['UL', 'UR', 'DL', 'DR'],
-        (51, 35): ['UL', 'UR', 'DL', 'DR'],
-        (53, 44): ['UB', 'UF', 'DB', 'DF'],
-    }
-    
-    corner_states = {
-        (1, 10, 39): ['ULB', 'URF', 'DLF', 'DRB'],
-        (3, 37, 30): ['UBR', 'UFL', 'DFR', 'DBL'],
-        (7, 19, 12): ['UBR', 'UFL', 'DFR', 'DBL'],
-        (9, 28, 21): ['ULB', 'URF', 'DLF', 'DRB'],
-        (46, 18, 25): ['ULB', 'URF', 'DLF', 'DRB'],
-        (48, 27, 34): ['UBR', 'UFL', 'DFR', 'DBL'],
-        (52, 45, 16): ['UBR', 'UFL', 'DFR', 'DBL'],
-        (54, 36, 43): ['ULB', 'URF', 'DLF', 'DRB'],
-    }
+    state_targets = (
+        'DFDxUxDFDLxLxLxLxLBFBxFxBFBRxRxRxRxRFFFxBxFFFUFUxDxUFU',
+        'DFDxUxDFDLxLxLxRxRBFBxFxFFFRxRxRxLxLFFFxBxBFBUFUxDxUFU',
+        'DFDxUxDFDLxRxLxLxRFFBxFxFFBRxLxRxRxLBFFxBxBFFUFUxDxUFU',
+        'DFDxUxDFDLxRxLxRxLFFBxFxBFFRxLxRxLxRBFFxBxFFBUFUxDxUFU',
+        'DFDxUxDFDRxLxLxLxRBFFxFxFFBLxRxRxRxLFFBxBxBFFUFUxDxUFU',
+        'DFDxUxDFDRxLxLxRxLBFFxFxBFFLxRxRxLxRFFBxBxFFBUFUxDxUFU',
+        'DFDxUxDFDRxRxLxLxLFFFxFxBFBLxLxRxRxRBFBxBxFFFUFUxDxUFU',
+        'DFDxUxDFDRxRxLxRxRFFFxFxFFFLxLxRxLxLBFBxBxBFBUFUxDxUFU',
+        'DFDxUxUFULxLxLxLxLFFFxFxBFBRxRxRxRxRFFFxBxBFBUFUxDxDFD',
+        'DFDxUxUFULxLxLxRxRFFBxFxBFFLxLxRxRxRBFFxBxFFBDFDxDxUFU',
+        'DFDxUxUFULxLxLxRxRFFBxFxFFBLxLxRxRxRBFFxBxBFFUFUxDxDFD',
+        'DFDxUxUFULxLxLxRxRFFFxFxBFBRxRxRxLxLFFFxBxBFBDFDxDxUFU',
+        'DFDxUxUFULxRxLxLxRBFBxFxBFBLxRxRxLxRFFFxBxFFFDFDxDxUFU',
+        'DFDxUxUFULxRxLxLxRBFBxFxFFFLxRxRxLxRFFFxBxBFBUFUxDxDFD',
+        'DFDxUxUFULxRxLxLxRBFFxFxBFFRxLxRxRxLBFFxBxBFFDFDxDxUFU',
+        'DFDxUxUFULxRxLxRxLBFFxFxBFFRxLxRxLxRBFFxBxBFFUFUxDxDFD',
+        'DFDxUxUFURxLxLxLxRFFBxFxFFBLxRxRxRxLFFBxBxFFBUFUxDxDFD',
+        'DFDxUxUFURxLxLxRxLFFBxFxFFBLxRxRxLxRFFBxBxFFBDFDxDxUFU',
+        'DFDxUxUFURxLxLxRxLFFFxFxBFBRxLxRxRxLBFBxBxFFFUFUxDxDFD',
+        'DFDxUxUFURxLxLxRxLFFFxFxFFFRxLxRxRxLBFBxBxBFBDFDxDxUFU',
+        'DFDxUxUFURxRxLxLxLBFBxFxFFFLxLxRxRxRBFBxBxFFFDFDxDxUFU',
+        'DFDxUxUFURxRxLxLxLBFFxFxBFFRxRxRxLxLFFBxBxFFBUFUxDxDFD',
+        'DFDxUxUFURxRxLxLxLBFFxFxFFBRxRxRxLxLFFBxBxBFFDFDxDxUFU',
+        'DFDxUxUFURxRxLxRxRBFBxFxFFFLxLxRxLxLBFBxBxFFFUFUxDxDFD',
+        'DFUxUxDFULxLxLxLxLBFFxFxBFFRxRxRxRxRBFFxBxBFFUFDxDxUFD',
+        'DFUxUxDFULxLxLxRxRBFBxFxBFBLxLxRxRxRFFFxBxFFFDFUxDxDFU',
+        'DFUxUxDFULxLxLxRxRBFBxFxFFFLxLxRxRxRFFFxBxBFBUFDxDxUFD',
+        'DFUxUxDFULxLxLxRxRBFFxFxBFFRxRxRxLxLBFFxBxBFFDFUxDxDFU',
+        'DFUxUxDFULxRxLxLxRFFBxFxBFFLxRxRxLxRBFFxBxFFBDFUxDxDFU',
+        'DFUxUxDFULxRxLxLxRFFBxFxFFBLxRxRxLxRBFFxBxBFFUFDxDxUFD',
+        'DFUxUxDFULxRxLxLxRFFFxFxBFBRxLxRxRxLFFFxBxBFBDFUxDxDFU',
+        'DFUxUxDFULxRxLxRxLFFFxFxBFBRxLxRxLxRFFFxBxBFBUFDxDxUFD',
+        'DFUxUxDFURxLxLxLxRBFBxFxFFFLxRxRxRxLBFBxBxFFFUFDxDxUFD',
+        'DFUxUxDFURxLxLxRxLBFBxFxFFFLxRxRxLxRBFBxBxFFFDFUxDxDFU',
+        'DFUxUxDFURxLxLxRxLBFFxFxBFFRxLxRxRxLFFBxBxFFBUFDxDxUFD',
+        'DFUxUxDFURxLxLxRxLBFFxFxFFBRxLxRxRxLFFBxBxBFFDFUxDxDFU',
+        'DFUxUxDFURxRxLxLxLFFBxFxFFBLxLxRxRxRFFBxBxFFBDFUxDxDFU',
+        'DFUxUxDFURxRxLxLxLFFFxFxBFBRxRxRxLxLBFBxBxFFFUFDxDxUFD',
+        'DFUxUxDFURxRxLxLxLFFFxFxFFFRxRxRxLxLBFBxBxBFBDFUxDxDFU',
+        'DFUxUxDFURxRxLxRxRFFBxFxFFBLxLxRxLxLFFBxBxFFBUFDxDxUFD',
+        'DFUxUxUFDLxLxLxLxLFFBxFxBFFRxRxRxRxRBFFxBxFFBUFDxDxDFU',
+        'DFUxUxUFDLxLxLxRxRFFBxFxFFBRxRxRxLxLBFFxBxBFFUFDxDxDFU',
+        'DFUxUxUFDLxRxLxLxRBFBxFxFFFRxLxRxRxLFFFxBxBFBUFDxDxDFU',
+        'DFUxUxUFDLxRxLxRxLBFBxFxBFBRxLxRxLxRFFFxBxFFFUFDxDxDFU',
+        'DFUxUxUFDRxLxLxLxRFFFxFxFFFLxRxRxRxLBFBxBxBFBUFDxDxDFU',
+        'DFUxUxUFDRxLxLxRxLFFFxFxBFBLxRxRxLxRBFBxBxFFFUFDxDxDFU',
+        'DFUxUxUFDRxRxLxLxLBFFxFxBFFLxLxRxRxRFFBxBxFFBUFDxDxDFU',
+        'DFUxUxUFDRxRxLxRxRBFFxFxFFBLxLxRxLxLFFBxBxBFFUFDxDxDFU',
+        'UFDxUxDFULxLxLxLxLBFFxFxFFBRxRxRxRxRFFBxBxBFFDFUxDxUFD',
+        'UFDxUxDFULxLxLxRxRBFFxFxBFFRxRxRxLxLFFBxBxFFBDFUxDxUFD',
+        'UFDxUxDFULxRxLxLxRFFFxFxBFBRxLxRxRxLBFBxBxFFFDFUxDxUFD',
+        'UFDxUxDFULxRxLxRxLFFFxFxFFFRxLxRxLxRBFBxBxBFBDFUxDxUFD',
+        'UFDxUxDFURxLxLxLxRBFBxFxBFBLxRxRxRxLFFFxBxFFFDFUxDxUFD',
+        'UFDxUxDFURxLxLxRxLBFBxFxFFFLxRxRxLxRFFFxBxBFBDFUxDxUFD',
+        'UFDxUxDFURxRxLxLxLFFBxFxFFBLxLxRxRxRBFFxBxBFFDFUxDxUFD',
+        'UFDxUxDFURxRxLxRxRFFBxFxBFFLxLxRxLxLBFFxBxFFBDFUxDxUFD',
+        'UFDxUxUFDLxLxLxLxLFFBxFxFFBRxRxRxRxRFFBxBxFFBDFUxDxDFU',
+        'UFDxUxUFDLxLxLxRxRFFBxFxFFBRxRxRxLxLFFBxBxFFBUFDxDxUFD',
+        'UFDxUxUFDLxLxLxRxRFFFxFxBFBLxLxRxRxRBFBxBxFFFDFUxDxDFU',
+        'UFDxUxUFDLxLxLxRxRFFFxFxFFFLxLxRxRxRBFBxBxBFBUFDxDxUFD',
+        'UFDxUxUFDLxRxLxLxRBFBxFxFFFRxLxRxRxLBFBxBxFFFUFDxDxUFD',
+        'UFDxUxUFDLxRxLxLxRBFFxFxBFFLxRxRxLxRFFBxBxFFBDFUxDxDFU',
+        'UFDxUxUFDLxRxLxLxRBFFxFxFFBLxRxRxLxRFFBxBxBFFUFDxDxUFD',
+        'UFDxUxUFDLxRxLxRxLBFBxFxFFFRxLxRxLxRBFBxBxFFFDFUxDxDFU',
+        'UFDxUxUFDRxLxLxLxRFFFxFxBFBLxRxRxRxLFFFxBxBFBDFUxDxDFU',
+        'UFDxUxUFDRxLxLxRxLFFBxFxBFFRxLxRxRxLBFFxBxFFBUFDxDxUFD',
+        'UFDxUxUFDRxLxLxRxLFFBxFxFFBRxLxRxRxLBFFxBxBFFDFUxDxDFU',
+        'UFDxUxUFDRxLxLxRxLFFFxFxBFBLxRxRxLxRFFFxBxBFBUFDxDxUFD',
+        'UFDxUxUFDRxRxLxLxLBFBxFxBFBRxRxRxLxLFFFxBxFFFUFDxDxUFD',
+        'UFDxUxUFDRxRxLxLxLBFBxFxFFFRxRxRxLxLFFFxBxBFBDFUxDxDFU',
+        'UFDxUxUFDRxRxLxLxLBFFxFxBFFLxLxRxRxRBFFxBxBFFUFDxDxUFD',
+        'UFDxUxUFDRxRxLxRxRBFFxFxBFFLxLxRxLxLBFFxBxBFFDFUxDxDFU',
+        'UFUxUxDFDLxLxLxLxLBFBxFxFFFRxRxRxRxRBFBxBxFFFDFDxDxUFU',
+        'UFUxUxDFDLxLxLxRxRBFBxFxFFFRxRxRxLxLBFBxBxFFFUFUxDxDFD',
+        'UFUxUxDFDLxLxLxRxRBFFxFxBFFLxLxRxRxRFFBxBxFFBDFDxDxUFU',
+        'UFUxUxDFDLxLxLxRxRBFFxFxFFBLxLxRxRxRFFBxBxBFFUFUxDxDFD',
+        'UFUxUxDFDLxRxLxLxRFFBxFxFFBRxLxRxRxLFFBxBxFFBUFUxDxDFD',
+        'UFUxUxDFDLxRxLxLxRFFFxFxBFBLxRxRxLxRBFBxBxFFFDFDxDxUFU',
+        'UFUxUxDFDLxRxLxLxRFFFxFxFFFLxRxRxLxRBFBxBxBFBUFUxDxDFD',
+        'UFUxUxDFDLxRxLxRxLFFBxFxFFBRxLxRxLxRFFBxBxFFBDFDxDxUFU',
+        'UFUxUxDFDRxLxLxLxRBFFxFxBFFLxRxRxRxLBFFxBxBFFDFDxDxUFU',
+        'UFUxUxDFDRxLxLxRxLBFBxFxBFBRxLxRxRxLFFFxBxFFFUFUxDxDFD',
+        'UFUxUxDFDRxLxLxRxLBFBxFxFFFRxLxRxRxLFFFxBxBFBDFDxDxUFU',
+        'UFUxUxDFDRxLxLxRxLBFFxFxBFFLxRxRxLxRBFFxBxBFFUFUxDxDFD',
+        'UFUxUxDFDRxRxLxLxLFFBxFxBFFRxRxRxLxLBFFxBxFFBUFUxDxDFD',
+        'UFUxUxDFDRxRxLxLxLFFBxFxFFBRxRxRxLxLBFFxBxBFFDFDxDxUFU',
+        'UFUxUxDFDRxRxLxLxLFFFxFxBFBLxLxRxRxRFFFxBxBFBUFUxDxDFD',
+        'UFUxUxDFDRxRxLxRxRFFFxFxBFBLxLxRxLxLFFFxBxBFBDFDxDxUFU',
+        'UFUxUxUFULxLxLxLxLFFFxFxFFFRxRxRxRxRBFBxBxBFBDFDxDxDFD',
+        'UFUxUxUFULxLxLxRxRFFFxFxBFBRxRxRxLxLBFBxBxFFFDFDxDxDFD',
+        'UFUxUxUFULxRxLxLxRBFFxFxBFFRxLxRxRxLFFBxBxFFBDFDxDxDFD',
+        'UFUxUxUFULxRxLxRxLBFFxFxFFBRxLxRxLxRFFBxBxBFFDFDxDxDFD',
+        'UFUxUxUFURxLxLxLxRFFBxFxBFFLxRxRxRxLBFFxBxFFBDFDxDxDFD',
+        'UFUxUxUFURxLxLxRxLFFBxFxFFBLxRxRxLxRBFFxBxBFFDFDxDxDFD',
+        'UFUxUxUFURxRxLxLxLBFBxFxFFFLxLxRxRxRFFFxBxBFBDFDxDxDFD',
+        'UFUxUxUFURxRxLxRxRBFBxFxBFBLxLxRxLxLFFFxBxFFFDFDxDxDFD',
+    )
 
     def __init__(self, parent):
         LookupTable.__init__(
             self,
             parent,
             directory + "lookup-table-3x3x3-step130.txt",
-            "DFUxUxUFDDxUxLxUxDUFDxFxDFUDxUxRxUxDUFDxBxDFUDFUxDxUFD",
-            linecount=4900,
+            self.state_targets,
+            linecount=2822400,
         )
 
     def state(self):
@@ -572,6 +692,7 @@ class LookupTable333Phase3(LookupTable):
                     state[e1] = "x"
                 break
 
+        '''
         CORNER_GROUP_1 = ("UFL", "UBR", "DFR", "DBL")
 
         for corner_position in CORNER_TUPLES:
@@ -587,12 +708,71 @@ class LookupTable333Phase3(LookupTable):
                     state[c1] = "D"
                     state[c2] = "D"
                 break
+        '''
 
         #print(cube2strcolor(self.parent.state))
         #print(cube2strcolor(state))
         #print(result)
         r = range(1, 55)
         return "".join([state[x] for x in r])
+
+
+class LookupTable333Phase4Edges(LookupTable):
+    """
+    lookup-table-3x3x3-step141-edges.txt
+    ====================================
+    0 steps has 1 entries (0 percent, 0.00x previous step)
+    1 steps has 6 entries (0 percent, 6.00x previous step)
+    2 steps has 27 entries (0 percent, 4.50x previous step)
+    3 steps has 120 entries (1 percent, 4.44x previous step)
+    4 steps has 519 entries (7 percent, 4.33x previous step)
+    5 steps has 1,582 entries (22 percent, 3.05x previous step)
+    6 steps has 2,911 entries (42 percent, 1.84x previous step)
+    7 steps has 1,588 entries (22 percent, 0.55x previous step)
+    8 steps has 158 entries (2 percent, 0.10x previous step)
+
+    Total: 6,912 entries
+    Average: 5.82 moves
+    """
+    def __init__(self, parent):
+        LookupTable.__init__(
+            self,
+            parent,
+            directory + "lookup-table-3x3x3-step141-edges.txt",
+            "UUUULLLLFFFFRRRRBBBBDDDD",
+            linecount=6912,
+        )
+
+    def state(self):
+        parent_state = self.parent.state
+        return "".join([parent_state[x] for x in EDGES])
+
+
+class LookupTable333Phase4Corners(LookupTable):
+    """
+    lookup-table-3x3x3-step142-corners.txt
+    ======================================
+    0 steps has 1 entries (1 percent, 0.00x previous step)
+    1 steps has 6 entries (6 percent, 6.00x previous step)
+    2 steps has 27 entries (28 percent, 4.50x previous step)
+    3 steps has 42 entries (43 percent, 1.56x previous step)
+    4 steps has 20 entries (20 percent, 0.48x previous step)
+
+    Total: 96 entries
+    Average: 2.77 moves
+    """
+    def __init__(self, parent):
+        LookupTable.__init__(
+            self,
+            parent,
+            directory + "lookup-table-3x3x3-step142-corners.txt",
+            "UUUULLLLFFFFRRRRBBBBDDDD",
+            linecount=96,
+        )
+
+    def state(self):
+        parent_state = self.parent.state
+        return "".join([parent_state[x] for x in CORNERS])
 
 
 class LookupTable333Phase4(LookupTable):
@@ -675,6 +855,8 @@ class RubiksCube333(object):
         self.lt_phase2 = LookupTable333Phase2(self)
         self.lt_phase3 = LookupTable333Phase3(self)
         self.lt_phase4 = LookupTable333Phase4(self)
+        self.lt_phase4_edges = LookupTable333Phase4Edges(self)
+        self.lt_phase4_corners = LookupTable333Phase4Corners(self)
 
     # @timed_function
     def re_init(self):
@@ -801,13 +983,11 @@ class RubiksCube333(object):
         original_solution= self.solution[:]
 
         self.lt_phase1.solve()
-        # dwalton
         solution_len = get_solution_len(self.solution)
         self.solution.append("COMMENT phase 1: EO edges ({} steps)".format(solution_len))
         prev_solution_len = solution_len
         print(cube2strcolor(self.state))
         print("phase1 complete, {} steps in".format(solution_len))
-        print("\n\n\n\n\n\n")
 
         self.lt_phase2.solve()
         solution_len = get_solution_len(self.solution)
@@ -815,7 +995,6 @@ class RubiksCube333(object):
         prev_solution_len = solution_len
         print(cube2strcolor(self.state))
         print("phase2 complete, {} steps in".format(solution_len))
-        print("\n\n\n\n\n\n")
 
         self.lt_phase3.solve()
         solution_len = get_solution_len(self.solution)
@@ -823,7 +1002,6 @@ class RubiksCube333(object):
         prev_solution_len = solution_len
         print(cube2strcolor(self.state))
         print("phase3 complete, {} steps in".format(solution_len))
-        print("\n\n\n\n\n\n")
 
         self.lt_phase4.solve()
         solution_len = get_solution_len(self.solution)
@@ -831,9 +1009,8 @@ class RubiksCube333(object):
         prev_solution_len = solution_len
         print(cube2strcolor(self.state))
         print("phase4 complete, {} steps in".format(solution_len))
-        print("\n\n\n\n\n\n")
 
-        print("FINAL CUBE:\n%s" % (cube2strcolor(self.state)))
+        #print("FINAL CUBE:\n%s" % (cube2strcolor(self.state)))
         self.solution = compress_solution(self.solution)
         print(get_alg_cubing_net_url(self.solution))
 
