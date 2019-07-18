@@ -855,8 +855,8 @@ class RubiksCube333(object):
         self.lt_phase2 = LookupTable333Phase2(self)
         self.lt_phase3 = LookupTable333Phase3(self)
         self.lt_phase4 = LookupTable333Phase4(self)
-        self.lt_phase4_edges = LookupTable333Phase4Edges(self)
-        self.lt_phase4_corners = LookupTable333Phase4Corners(self)
+        #self.lt_phase4_edges = LookupTable333Phase4Edges(self)
+        #self.lt_phase4_corners = LookupTable333Phase4Corners(self)
 
     # @timed_function
     def re_init(self):
