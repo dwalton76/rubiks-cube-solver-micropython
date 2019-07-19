@@ -10,7 +10,7 @@ class NoSteps(Exception):
 
 class LookupTable(object):
 
-    def __init__(self, parent, filename, state_target, linecount):
+    def __init__(self, parent, filename, state_target, linecount, init_width=True):
         self.parent = parent
         self.filename = filename
         self.filename_gz = filename + ".gz"
@@ -19,11 +19,15 @@ class LookupTable(object):
         assert self.linecount, "%s linecount is %s" % (self, self.linecount)
 
         # Find the state_width for the entries in our .txt file
-        with open(self.filename, "r") as fh:
-            first_line = next(fh)
-            self.width = len(first_line)
-            (state, steps) = first_line.strip().split(":")
-            self.state_width = len(state)
+        if init_width:
+            with open(self.filename, "r") as fh:
+                first_line = next(fh)
+                self.width = len(first_line)
+                (state, steps) = first_line.strip().split(":")
+                self.state_width = len(state)
+        else:
+            self.width = None
+            self.state_width = None
 
         if isinstance(state_target, tuple):
             self.state_target = set(state_target)
@@ -38,6 +42,15 @@ class LookupTable(object):
 
     def __str__(self):
         return self.desc
+
+    def get_line(self, line_number):
+        self.fh_txt.seek(line_number * self.width)
+        line = self.fh_txt.read(self.width)
+        return line.rstrip()
+
+    def get_character(self, index):
+        self.fh_txt.seek(index)
+        return self.fh_txt.read(1)
 
     def binary_search(self, state_to_find):
         first = 0
@@ -64,7 +77,7 @@ class LookupTable(object):
 
         return None
 
-    def steps(self, state_to_find=None):
+    def steps(self, state_to_find):
         """
         Return a list of the steps found in the lookup table for the current cube state
         """
@@ -82,18 +95,13 @@ class LookupTable(object):
         state = self.state()
         # print("%s: solve() state %s vs state_target %s" % (self, state, str(self.state_target)))
 
-        if state in self.state_target:
-            return
+        while state not in self.state_target:
+            steps = self.steps(state)
 
-        steps = self.steps(state)
+            if steps:
+                for step in steps:
+                    self.parent.rotate(step)
+            else:
+                raise NoSteps("%s: state %s does not have steps in %s" % (self, state, self.filename))
 
-        if steps:
-            for step in steps:
-                self.parent.rotate(step)
-        else:
-            raise NoSteps("%s: state %s does not have steps in %s" % (self, state, self.filename))
-
-        state = self.state()
-
-        if state not in self.state_target:
-            raise Exception("{}: state {} is not in state_target {}".format(self, state, self.state_target))
+            state = self.state()
