@@ -127,8 +127,6 @@ def cube2str(cube):
     """
     Return a human readable string for `cube`
     """
-    # dwalton
-    return ""
     return """
         %s %s %s
         %s %s %s
