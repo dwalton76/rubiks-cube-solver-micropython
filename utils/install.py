@@ -45,13 +45,11 @@ def install_rubiks_cube_solver(dev: str) -> bool:
 
     dirname = "rubikscubesolvermicropython"
 
-    '''
     try:
         with open(os.devnull, 'w'):
             subprocess.call(f"ampy --port /dev/ttyACM0 mkdir {dirname}", shell=True)
     except Exception:
         pass
-    '''
 
     current_files = sorted(subprocess.check_output(f"ampy --port {dev} ls {dirname}", shell=True).decode("utf-8").splitlines())
 
@@ -62,7 +60,7 @@ def install_rubiks_cube_solver(dev: str) -> bool:
         local_filename = f"{dirname}/{filename}"
         dest_filename = f"/{dirname}/{filename}"
         filesize = sizeof_human_readable(os.path.getsize(local_filename))
-        
+
         if dest_filename not in current_files:
             log.info(f"TX {filesize} {filename}")
             subprocess.call(f"ampy --port /dev/ttyACM0 put {local_filename} {dest_filename}", shell=True)
