@@ -1,9 +1,0 @@
-
-- the phase2 table is 1 million entries and takes 88M.  Need a more efficient
-  way to store this.
-
-- the phase3 table is 2 million entries and takes 254M.  Need a more efficient
-  way to store this.
-
-- the phase4 table is 653k entries and takes 64M.  Need a more efficient
-  way to store this.
