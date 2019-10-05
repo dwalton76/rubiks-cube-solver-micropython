@@ -1,4 +1,0 @@
-
-- re-color the cube and see if you can find a shorter solution
-- use const()
-- do not load the movetables into memory, just binary search the file

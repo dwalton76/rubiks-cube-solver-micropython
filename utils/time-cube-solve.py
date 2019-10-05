@@ -4,7 +4,6 @@ from rubikscubesolvermicropython.cube import RubiksCube333
 
 cube_state = "RRBBUFBFBRLRRRFRDDURUBFBBRFLUDUDFLLFFLLLLDFBDDDUUBDLUU"
 cube = RubiksCube333(cube_state, 'URFDLB')
-cube.load_tables()
 
 def solve_cube(count):
     ref_cube = cube

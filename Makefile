@@ -1,7 +1,8 @@
 
-
 clean:
 	rm -rf build
 
 install:
-	python3 setup.py install
+	mkdir /usr/lib/micropython/rubikscubesolvermicropython/
+	cp rubikscubesolvermicropython/*.py /usr/lib/micropython/rubikscubesolvermicropython/
+	cp rubikscubesolvermicropython/*.txt /usr/lib/micropython/rubikscubesolvermicropython/

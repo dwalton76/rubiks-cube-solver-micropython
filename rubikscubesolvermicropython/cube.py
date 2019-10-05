@@ -1,109 +1,120 @@
 
-from micropython import const
-import utime
+"""
+The phase1 table for this solver is pretty straightforward. The phase2,
+phase3, and phase4 tables are encoded a little differenlty to save space...
 
-U = const(0)
-L = const(1)
-F = const(2)
-R = const(3)
-B = const(4)
-D = const(5)
+This solver was written primarily to run on the lego SPIKE platform
+which only has 30M of free disk space. Initially the phase2 table
+was 88M, the phase3 table 254M and the phase4 table 64M. Each of these
+tables consisted of the full cube state and the steps needed to solve
+that state.
 
-side2str = {
-    U : "U",
-    F : "F",
-    D : "D",
-    B : "B",
-    R : "R",
-    L : "L",
-}
+- We did not need to store the entire move sequence, we only needed to
+know the next move (because that takes us to a new state where we can
+just do another lookup).  That alone chopped about 25% off of each table.
 
-# This numbering looks a bit odd but this is how the sides were numbered
-# in the original NXT solver.  This should only be used in get_step_string().
-get_step_string_side2str = {
-    0 : "U",
-    1 : "F",
-    2 : "D",
-    3 : "B",
-    4 : "R",
-    5 : "L",
-}
+- Store the moves as a single character instead of "U'", "U2", etc. See
+step_to_char for the mapping.
 
-'''
-cube_layout = """
-          00 01 02
-          03 04 05
-          06 07 08
+- The bigger change needed was a more effecient way of storing the cube state.
+    - assign each edge state in the table a unique index
+    - assign each corner state in the table a unique index
+    - main table index is then:
+        main_index = (edge_index * corners_count) + corner_index
 
-09 10 11  18 19 20  27 28 29  36 37 38
-12 13 14  21 22 23  30 31 32  39 40 41
-15 16 17  24 25 26  33 34 35  42 43 44
-
-          45 46 47
-          48 49 50
-          51 52 53
+Now the main table can be a single line of "edges_count * corners_count"
+step_to_char characters. This cut the phase2 table down to 1.1M, the phase3
+table to 2.7M and the phase4 table to 649K!!!
 """
 '''
 
+from rubikscubesolvermicropython.LookupTable import LookupTable
 
-# There are 24 combinations to try in terms of which colors
-# are on side U and side F
-rotations_24 = (
-    (const(0), ()),
-    (const(1), ("y",)),
-    (const(1), ("y'",)),
-    (const(2), ("y", "y")),
-    (const(2), ("x", "x")),
-    (const(3), ("x", "x", "y")),
-    (const(3), ("x", "x", "y'")),
-    (const(4), ("x", "x", "y", "y")),
-    (const(2), ("y'", "x")),
-    (const(3), ("y'", "x", "y")),
-    (const(3), ("y'", "x", "y'")),
-    (const(4), ("y'", "x", "y", "y")),
-    (const(1), ("x",)),
-    (const(2), ("x", "y")),
-    (const(2), ("x", "y'")),
-    (const(3), ("x", "y", "y")),
-    (const(2), ("y", "x")),
-    (const(3), ("y", "x", "y")),
-    (const(3), ("y", "x", "y'")),
-    (const(4), ("y", "x", "y", "y")),
-    (const(1), ("x'",)),
-    (const(2), ("x'", "y")),
-    (const(2), ("x'", "y'")),
-    (const(3), ("x'", "y", "y")),
+# Get the directory where cube.py was installed...example:
+# /usr/lib/micropython/rubikscubesolvermicropython/cube.py
+directory = "/".join(__file__.split("/")[:-1]) + "/"
+
+kociemba_sequence = (
+    1, 2, 3, 4, 5, 6, 7, 8, 9,  # U
+    28, 29, 30, 31, 32, 33, 34, 35, 36,  # R
+    19, 20, 21, 22, 23, 24, 25, 26, 27,  # F
+    46, 47, 48, 49, 50, 51, 52, 53, 54,  # D
+    10, 11, 12, 13, 14, 15, 16, 17, 18,  # L
+    37, 38, 39, 40, 41, 42, 43, 44, 45,  # B
 )
+
+EDGES = (
+    2, 4, 6, 8,  # U
+    11, 13, 15, 17,  # L
+    20, 22, 24, 26,  # F
+    29, 31, 33, 35,  # R
+    38, 40, 42, 44,  # B
+    47, 49, 51, 53,  # D
+)
+
+CORNERS = (
+    1, 3, 7, 9,
+    10, 12, 16, 18,
+    19, 21, 25, 27,
+    28, 30, 34, 36,
+    37, 39, 43, 45,
+    46, 48, 52, 54,
+)
+
+FULL_CUBE_ROTATES = set(("x", "x'", "x2", "y", "y'", "y2", "z", "z'", "z2"))
+
+char_to_step = {
+    '0' : "",
+    '1' : "U",
+    '2' : "U'",
+    '3' : "U2",
+    '4' : "L",
+    '5' : "L'",
+    '6' : "L2",
+    '7' : "F",
+    '8' : "F'",
+    '9' : "F2",
+    'a' : "R",
+    'b' : "R'",
+    'c' : "R2",
+    'd' : "B",
+    'e' : "B'",
+    'f' : "B2",
+    'g' : "D",
+    'h' : "D'",
+    'i' : "D2",
+}
+
 
 # facelet swaps for 3x3x3 moves
 swaps_333 = {
-    "B" : (29, 32, 35, 3, 4, 5, 6, 7, 8, 2, 10, 11, 1, 13, 14, 0, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 53, 30, 31, 52, 33, 34, 51, 42, 39, 36, 43, 40, 37, 44, 41, 38, 45, 46, 47, 48, 49, 50, 9, 12, 15),
-    "B'" : (15, 12, 9, 3, 4, 5, 6, 7, 8, 51, 10, 11, 52, 13, 14, 53, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 0, 30, 31, 1, 33, 34, 2, 38, 41, 44, 37, 40, 43, 36, 39, 42, 45, 46, 47, 48, 49, 50, 35, 32, 29),
-    "B2" : (53, 52, 51, 3, 4, 5, 6, 7, 8, 35, 10, 11, 32, 13, 14, 29, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 15, 30, 31, 12, 33, 34, 9, 44, 43, 42, 41, 40, 39, 38, 37, 36, 45, 46, 47, 48, 49, 50, 2, 1, 0),
-    "D" : (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 42, 43, 44, 18, 19, 20, 21, 22, 23, 15, 16, 17, 27, 28, 29, 30, 31, 32, 24, 25, 26, 36, 37, 38, 39, 40, 41, 33, 34, 35, 51, 48, 45, 52, 49, 46, 53, 50, 47),
-    "D'" : (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 24, 25, 26, 18, 19, 20, 21, 22, 23, 33, 34, 35, 27, 28, 29, 30, 31, 32, 42, 43, 44, 36, 37, 38, 39, 40, 41, 15, 16, 17, 47, 50, 53, 46, 49, 52, 45, 48, 51),
-    "D2" : (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 33, 34, 35, 18, 19, 20, 21, 22, 23, 42, 43, 44, 27, 28, 29, 30, 31, 32, 15, 16, 17, 36, 37, 38, 39, 40, 41, 24, 25, 26, 53, 52, 51, 50, 49, 48, 47, 46, 45),
-    "F" : (0, 1, 2, 3, 4, 5, 17, 14, 11, 9, 10, 45, 12, 13, 46, 15, 16, 47, 24, 21, 18, 25, 22, 19, 26, 23, 20, 6, 28, 29, 7, 31, 32, 8, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 33, 30, 27, 48, 49, 50, 51, 52, 53),
-    "F'" : (0, 1, 2, 3, 4, 5, 27, 30, 33, 9, 10, 8, 12, 13, 7, 15, 16, 6, 20, 23, 26, 19, 22, 25, 18, 21, 24, 47, 28, 29, 46, 31, 32, 45, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 11, 14, 17, 48, 49, 50, 51, 52, 53),
-    "F2" : (0, 1, 2, 3, 4, 5, 47, 46, 45, 9, 10, 33, 12, 13, 30, 15, 16, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 28, 29, 14, 31, 32, 11, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 8, 7, 6, 48, 49, 50, 51, 52, 53),
-    "L" : (44, 1, 2, 41, 4, 5, 38, 7, 8, 15, 12, 9, 16, 13, 10, 17, 14, 11, 0, 19, 20, 3, 22, 23, 6, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 51, 39, 40, 48, 42, 43, 45, 18, 46, 47, 21, 49, 50, 24, 52, 53),
-    "L'" : (18, 1, 2, 21, 4, 5, 24, 7, 8, 11, 14, 17, 10, 13, 16, 9, 12, 15, 45, 19, 20, 48, 22, 23, 51, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 6, 39, 40, 3, 42, 43, 0, 44, 46, 47, 41, 49, 50, 38, 52, 53),
-    "L2" : (45, 1, 2, 48, 4, 5, 51, 7, 8, 17, 16, 15, 14, 13, 12, 11, 10, 9, 44, 19, 20, 41, 22, 23, 38, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 24, 39, 40, 21, 42, 43, 18, 0, 46, 47, 3, 49, 50, 6, 52, 53),
-    "R" : (0, 1, 20, 3, 4, 23, 6, 7, 26, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 47, 21, 22, 50, 24, 25, 53, 33, 30, 27, 34, 31, 28, 35, 32, 29, 8, 37, 38, 5, 40, 41, 2, 43, 44, 45, 46, 42, 48, 49, 39, 51, 52, 36),
-    "R'" : (0, 1, 42, 3, 4, 39, 6, 7, 36, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 2, 21, 22, 5, 24, 25, 8, 29, 32, 35, 28, 31, 34, 27, 30, 33, 53, 37, 38, 50, 40, 41, 47, 43, 44, 45, 46, 20, 48, 49, 23, 51, 52, 26),
-    "R2" : (0, 1, 47, 3, 4, 50, 6, 7, 53, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 42, 21, 22, 39, 24, 25, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 37, 38, 23, 40, 41, 20, 43, 44, 45, 46, 2, 48, 49, 5, 51, 52, 8),
-    "U" : (6, 3, 0, 7, 4, 1, 8, 5, 2, 18, 19, 20, 12, 13, 14, 15, 16, 17, 27, 28, 29, 21, 22, 23, 24, 25, 26, 36, 37, 38, 30, 31, 32, 33, 34, 35, 9, 10, 11, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53),
-    "U'" : (2, 5, 8, 1, 4, 7, 0, 3, 6, 36, 37, 38, 12, 13, 14, 15, 16, 17, 9, 10, 11, 21, 22, 23, 24, 25, 26, 18, 19, 20, 30, 31, 32, 33, 34, 35, 27, 28, 29, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53),
-    "U2" : (8, 7, 6, 5, 4, 3, 2, 1, 0, 27, 28, 29, 12, 13, 14, 15, 16, 17, 36, 37, 38, 21, 22, 23, 24, 25, 26, 9, 10, 11, 30, 31, 32, 33, 34, 35, 18, 19, 20, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53),
-    "x" : (18, 19, 20, 21, 22, 23, 24, 25, 26, 11, 14, 17, 10, 13, 16, 9, 12, 15, 45, 46, 47, 48, 49, 50, 51, 52, 53, 33, 30, 27, 34, 31, 28, 35, 32, 29, 8, 7, 6, 5, 4, 3, 2, 1, 0, 44, 43, 42, 41, 40, 39, 38, 37, 36),
-    "x'" : (44, 43, 42, 41, 40, 39, 38, 37, 36, 15, 12, 9, 16, 13, 10, 17, 14, 11, 0, 1, 2, 3, 4, 5, 6, 7, 8, 29, 32, 35, 28, 31, 34, 27, 30, 33, 53, 52, 51, 50, 49, 48, 47, 46, 45, 18, 19, 20, 21, 22, 23, 24, 25, 26),
-    "x2" : (45, 46, 47, 48, 49, 50, 51, 52, 53, 17, 16, 15, 14, 13, 12, 11, 10, 9, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 0, 1, 2, 3, 4, 5, 6, 7, 8),
-    "y" : (6, 3, 0, 7, 4, 1, 8, 5, 2, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 9, 10, 11, 12, 13, 14, 15, 16, 17, 47, 50, 53, 46, 49, 52, 45, 48, 51),
-    "y'" : (2, 5, 8, 1, 4, 7, 0, 3, 6, 36, 37, 38, 39, 40, 41, 42, 43, 44, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 51, 48, 45, 52, 49, 46, 53, 50, 47),
-    "y2" : (8, 7, 6, 5, 4, 3, 2, 1, 0, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 53, 52, 51, 50, 49, 48, 47, 46, 45),
-    "z" : (15, 12, 9, 16, 13, 10, 17, 14, 11, 51, 48, 45, 52, 49, 46, 53, 50, 47, 24, 21, 18, 25, 22, 19, 26, 23, 20, 6, 3, 0, 7, 4, 1, 8, 5, 2, 38, 41, 44, 37, 40, 43, 36, 39, 42, 33, 30, 27, 34, 31, 28, 35, 32, 29),
-    "z'" : (29, 32, 35, 28, 31, 34, 27, 30, 33, 2, 5, 8, 1, 4, 7, 0, 3, 6, 20, 23, 26, 19, 22, 25, 18, 21, 24, 47, 50, 53, 46, 49, 52, 45, 48, 51, 42, 39, 36, 43, 40, 37, 44, 41, 38, 11, 14, 17, 10, 13, 16, 9, 12, 15),
-    "z2" : (53, 52, 51, 50, 49, 48, 47, 46, 45, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 44, 43, 42, 41, 40, 39, 38, 37, 36, 8, 7, 6, 5, 4, 3, 2, 1, 0),
+    "B": (0, 30, 33, 36, 4, 5, 6, 7, 8, 9, 3, 11, 12, 2, 14, 15, 1, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 54, 31, 32, 53, 34, 35, 52, 43, 40, 37, 44, 41, 38, 45, 42, 39, 46, 47, 48, 49, 50, 51, 10, 13, 16),
+    "B'": (0, 16, 13, 10, 4, 5, 6, 7, 8, 9, 52, 11, 12, 53, 14, 15, 54, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 1, 31, 32, 2, 34, 35, 3, 39, 42, 45, 38, 41, 44, 37, 40, 43, 46, 47, 48, 49, 50, 51, 36, 33, 30),
+    "B2": (0, 54, 53, 52, 4, 5, 6, 7, 8, 9, 36, 11, 12, 33, 14, 15, 30, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 16, 31, 32, 13, 34, 35, 10, 45, 44, 43, 42, 41, 40, 39, 38, 37, 46, 47, 48, 49, 50, 51, 3, 2, 1),
+    "D": (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 43, 44, 45, 19, 20, 21, 22, 23, 24, 16, 17, 18, 28, 29, 30, 31, 32, 33, 25, 26, 27, 37, 38, 39, 40, 41, 42, 34, 35, 36, 52, 49, 46, 53, 50, 47, 54, 51, 48),
+    "D'": (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 25, 26, 27, 19, 20, 21, 22, 23, 24, 34, 35, 36, 28, 29, 30, 31, 32, 33, 43, 44, 45, 37, 38, 39, 40, 41, 42, 16, 17, 18, 48, 51, 54, 47, 50, 53, 46, 49, 52),
+    "D2": (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 34, 35, 36, 19, 20, 21, 22, 23, 24, 43, 44, 45, 28, 29, 30, 31, 32, 33, 16, 17, 18, 37, 38, 39, 40, 41, 42, 25, 26, 27, 54, 53, 52, 51, 50, 49, 48, 47, 46),
+    "F": (0, 1, 2, 3, 4, 5, 6, 18, 15, 12, 10, 11, 46, 13, 14, 47, 16, 17, 48, 25, 22, 19, 26, 23, 20, 27, 24, 21, 7, 29, 30, 8, 32, 33, 9, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 34, 31, 28, 49, 50, 51, 52, 53, 54),
+    "F'": (0, 1, 2, 3, 4, 5, 6, 28, 31, 34, 10, 11, 9, 13, 14, 8, 16, 17, 7, 21, 24, 27, 20, 23, 26, 19, 22, 25, 48, 29, 30, 47, 32, 33, 46, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 12, 15, 18, 49, 50, 51, 52, 53, 54),
+    "F2": (0, 1, 2, 3, 4, 5, 6, 48, 47, 46, 10, 11, 34, 13, 14, 31, 16, 17, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 29, 30, 15, 32, 33, 12, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 9, 8, 7, 49, 50, 51, 52, 53, 54),
+    "L": (0, 45, 2, 3, 42, 5, 6, 39, 8, 9, 16, 13, 10, 17, 14, 11, 18, 15, 12, 1, 20, 21, 4, 23, 24, 7, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 52, 40, 41, 49, 43, 44, 46, 19, 47, 48, 22, 50, 51, 25, 53, 54),
+    "L'": (0, 19, 2, 3, 22, 5, 6, 25, 8, 9, 12, 15, 18, 11, 14, 17, 10, 13, 16, 46, 20, 21, 49, 23, 24, 52, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 7, 40, 41, 4, 43, 44, 1, 45, 47, 48, 42, 50, 51, 39, 53, 54),
+    "L2": (0, 46, 2, 3, 49, 5, 6, 52, 8, 9, 18, 17, 16, 15, 14, 13, 12, 11, 10, 45, 20, 21, 42, 23, 24, 39, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 25, 40, 41, 22, 43, 44, 19, 1, 47, 48, 4, 50, 51, 7, 53, 54),
+    "R": (0, 1, 2, 21, 4, 5, 24, 7, 8, 27, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 48, 22, 23, 51, 25, 26, 54, 34, 31, 28, 35, 32, 29, 36, 33, 30, 9, 38, 39, 6, 41, 42, 3, 44, 45, 46, 47, 43, 49, 50, 40, 52, 53, 37),
+    "R'": (0, 1, 2, 43, 4, 5, 40, 7, 8, 37, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 3, 22, 23, 6, 25, 26, 9, 30, 33, 36, 29, 32, 35, 28, 31, 34, 54, 38, 39, 51, 41, 42, 48, 44, 45, 46, 47, 21, 49, 50, 24, 52, 53, 27),
+    "R2": (0, 1, 2, 48, 4, 5, 51, 7, 8, 54, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 43, 22, 23, 40, 25, 26, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 38, 39, 24, 41, 42, 21, 44, 45, 46, 47, 3, 49, 50, 6, 52, 53, 9),
+    "U": (0, 7, 4, 1, 8, 5, 2, 9, 6, 3, 19, 20, 21, 13, 14, 15, 16, 17, 18, 28, 29, 30, 22, 23, 24, 25, 26, 27, 37, 38, 39, 31, 32, 33, 34, 35, 36, 10, 11, 12, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54),
+    "U'": (0, 3, 6, 9, 2, 5, 8, 1, 4, 7, 37, 38, 39, 13, 14, 15, 16, 17, 18, 10, 11, 12, 22, 23, 24, 25, 26, 27, 19, 20, 21, 31, 32, 33, 34, 35, 36, 28, 29, 30, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54),
+    "U2": (0, 9, 8, 7, 6, 5, 4, 3, 2, 1, 28, 29, 30, 13, 14, 15, 16, 17, 18, 37, 38, 39, 22, 23, 24, 25, 26, 27, 10, 11, 12, 31, 32, 33, 34, 35, 36, 19, 20, 21, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54),
+    "x": (0, 19, 20, 21, 22, 23, 24, 25, 26, 27, 12, 15, 18, 11, 14, 17, 10, 13, 16, 46, 47, 48, 49, 50, 51, 52, 53, 54, 34, 31, 28, 35, 32, 29, 36, 33, 30, 9, 8, 7, 6, 5, 4, 3, 2, 1, 45, 44, 43, 42, 41, 40, 39, 38, 37),
+    "x'": (0, 45, 44, 43, 42, 41, 40, 39, 38, 37, 16, 13, 10, 17, 14, 11, 18, 15, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 30, 33, 36, 29, 32, 35, 28, 31, 34, 54, 53, 52, 51, 50, 49, 48, 47, 46, 19, 20, 21, 22, 23, 24, 25, 26, 27),
+    "x2": (0, 46, 47, 48, 49, 50, 51, 52, 53, 54, 18, 17, 16, 15, 14, 13, 12, 11, 10, 45, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 1, 2, 3, 4, 5, 6, 7, 8, 9),
+    "y": (0, 7, 4, 1, 8, 5, 2, 9, 6, 3, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 10, 11, 12, 13, 14, 15, 16, 17, 18, 48, 51, 54, 47, 50, 53, 46, 49, 52),
+    "y'": (0, 3, 6, 9, 2, 5, 8, 1, 4, 7, 37, 38, 39, 40, 41, 42, 43, 44, 45, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 52, 49, 46, 53, 50, 47, 54, 51, 48),
+    "y2": (0, 9, 8, 7, 6, 5, 4, 3, 2, 1, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 54, 53, 52, 51, 50, 49, 48, 47, 46),
+    "z": (0, 16, 13, 10, 17, 14, 11, 18, 15, 12, 52, 49, 46, 53, 50, 47, 54, 51, 48, 25, 22, 19, 26, 23, 20, 27, 24, 21, 7, 4, 1, 8, 5, 2, 9, 6, 3, 39, 42, 45, 38, 41, 44, 37, 40, 43, 34, 31, 28, 35, 32, 29, 36, 33, 30),
+    "z'": (0, 30, 33, 36, 29, 32, 35, 28, 31, 34, 3, 6, 9, 2, 5, 8, 1, 4, 7, 21, 24, 27, 20, 23, 26, 19, 22, 25, 48, 51, 54, 47, 50, 53, 46, 49, 52, 43, 40, 37, 44, 41, 38, 45, 42, 39, 12, 15, 18, 11, 14, 17, 10, 13, 16),
+    "z2": (0, 54, 53, 52, 51, 50, 49, 48, 47, 46, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 45, 44, 43, 42, 41, 40, 39, 38, 37, 9, 8, 7, 6, 5, 4, 3, 2, 1),
 }
 
 
@@ -113,27 +124,11 @@ def print_mem_stats(desc):
 
 
 # @timed_function
-def get_lines_in_file(file_data, line_width, line_index, lines_to_get):
-    """
-    result = []
-    start = line_width * line_index
-    end = start + (line_width * lines_to_get)
-    data = file_data[start:end]
-
-    for line in data.splitlines():
-        result.append(int(line, 16))
-
-    return result
-    """
-    return [int(x, 16) for x in file_data[line_width * line_index : (line_width * line_index) + (line_width * lines_to_get)].splitlines()]
-
-
-# @timed_function
 def cube2str(cube):
     """
     Return a human readable string for `cube`
     """
-    result = """
+    return """
         %s %s %s
         %s %s %s
         %s %s %s
@@ -146,34 +141,29 @@ def cube2str(cube):
         %s %s %s
         %s %s %s
 """ % (
-    cube[0], cube[1], cube[2], # U row 1
-    cube[3], cube[4], cube[5], # U row 2
-    cube[6], cube[7], cube[8], # U row 3
+    cube[1], cube[2], cube[3], # U row 1
+    cube[4], cube[5], cube[6], # U row 2
+    cube[7], cube[8], cube[9], # U row 3
 
-    cube[9], cube[10], cube[11],  # L row 1
-    cube[18], cube[19], cube[20], # F row 1
-    cube[27], cube[28], cube[29], # R row 1
-    cube[36], cube[37], cube[38], # B row 1
+    cube[10], cube[11], cube[12], # L row 1
+    cube[19], cube[20], cube[21], # F row 1
+    cube[28], cube[29], cube[30], # R row 1
+    cube[37], cube[38], cube[39], # B row 1
 
-    cube[12], cube[13], cube[14], # L row 2
-    cube[21], cube[22], cube[23], # F row 2
-    cube[30], cube[31], cube[32], # R row 2
-    cube[39], cube[40], cube[41], # B row 2
+    cube[13], cube[14], cube[15], # L row 2
+    cube[22], cube[23], cube[24], # F row 2
+    cube[31], cube[32], cube[33], # R row 2
+    cube[40], cube[41], cube[42], # B row 2
 
-    cube[15], cube[16], cube[17], # L row 3
-    cube[24], cube[25], cube[26], # F row 3
-    cube[33], cube[34], cube[35], # R row 3
-    cube[42], cube[43], cube[44], # B row 3
+    cube[16], cube[17], cube[18], # L row 3
+    cube[25], cube[26], cube[27], # F row 3
+    cube[34], cube[35], cube[36], # R row 3
+    cube[43], cube[44], cube[45], # B row 3
 
-    cube[45], cube[46], cube[47], # D row 1
-    cube[48], cube[49], cube[50], # D row 2
-    cube[51], cube[52], cube[53]  # D row 3
+    cube[46], cube[47], cube[48], # D row 1
+    cube[49], cube[50], cube[51], # D row 2
+    cube[52], cube[53], cube[54]  # D row 3
     )
-
-    for (side_number, side_name) in side2str.items():
-        result = result.replace(str(side_number), side_name)
-
-    return result
 
 
 # @timed_function
@@ -211,63 +201,8 @@ def get_alg_cubing_net_url(solution):
     return url
 
 
-CORNER_TUPLES = (
-    (0, 29, 2, 36), (1, 36, 29, 2), (2, 2, 36, 29), # UBR
-    (3, 38, 0, 9), (4, 9, 38, 0), (5, 0, 9, 38), # ULB
-    (6, 11, 6, 18), (7, 18, 11, 6), (8, 6, 18, 11), # UFL
-    (9, 20, 8, 27), (10, 27, 20, 8), (11, 8, 27, 20), # URF
-    (12, 24, 45, 17), (13, 17, 24, 45), (14, 45, 17, 24), # DLF
-    (15, 15, 51, 44), (16, 44, 15, 51), (17, 51, 44, 15), # DBL
-    (18, 42, 53, 35), (19, 35, 42, 53), (20, 53, 35, 42), # DRB
-    (21, 33, 47, 26), (22, 26, 33, 47), (23, 47, 26, 33), # DFR
-)
-
-
-EDGE_TUPLES = (
-    (0, 37, 1), (1, 1, 37), # UB
-    (2, 10, 3), (3, 3, 10), # UL
-    (4, 19, 7), (5, 7, 19), # UF
-    (6, 28, 5), (7, 5, 28), # UR
-    (8, 21, 14), (9, 14, 21), # LF
-    (10, 12, 41), (11, 41, 12), # BL
-    (12, 16, 48), (13, 48, 16), # DL
-    (14, 39, 32), (15, 32, 39), # RB
-    (16, 43, 52), (17, 52, 43), # DB
-    (18, 30, 23), (19, 23, 30), # FR
-    (20, 34, 50), (21, 50, 34), # DR
-    (22, 25, 46), (23, 46, 25), # DF
-)
-
-
-def RFIX(RR):
-    """
-    Normalize to range -1 to 2
-    """
-    return ((int(RR) + 1) & 3) - 1
-
-
 # @timed_function
-def get_step_string(f, r):
-    """
-    Give the face `f` and rotation `r`, return the string equivalent such as U, U', U2, etc
-    """
-    r &= 3
-
-    # r is 1/4 forward, 1/4 backward or 1/2 turn
-    if r == 1:
-        return get_step_string_side2str[f]
-    elif r == 2:
-        return "{}2".format(get_step_string_side2str[f])
-    elif r == 3:
-        return "{}'".format(get_step_string_side2str[f])
-    else:
-        raise Exception("rotate r '%s' is invalid" % r)
-
-
-FULL_CUBE_ROTATES = set(("x", "x'", "x2", "y", "y'", "y2", "z", "z'", "z2"))
-
-# @timed_function
-def get_solution_len_minus_rotates(solution):
+def get_solution_len(solution):
     """
     Return the length of `solution` ignoring comments and whole cube rotations
     """
@@ -440,6 +375,681 @@ def compress_solution(solution):
     return result
 
 
+EDGE_TUPLES = (
+    ((2, 38), (38, 2)),
+    ((4, 11), (11, 4)),
+    ((6, 29), (29, 6)),
+    ((8, 20), (20, 8)),
+    ((13, 42), (42, 13)),
+    ((15, 22), (22, 15)),
+    ((31, 24), (24, 31)),
+    ((33, 40), (40, 33)),
+    ((47, 26), (26, 47)),
+    ((49, 17), (17, 49)),
+    ((51, 35), (35, 51)),
+    ((53, 44), (44, 53)),
+)
+
+
+CORNER_TUPLES = (
+    ((1, 10, 39), (39, 1, 10), (10, 39, 1)),
+    ((3, 37, 30), (30, 3, 37), (37, 30, 3)),
+    ((7, 19, 12), (12, 7, 19), (19, 12, 7)),
+    ((9, 28, 21), (21, 9, 28), (28, 21, 9)),
+    ((46, 18, 25), (25, 46, 18), (18, 25, 46)),
+    ((48, 27, 34), (34, 48, 27), (27, 34, 48)),
+    ((52, 45, 16), (16, 52, 45), (45, 16, 52)),
+    ((54, 36, 43), (43, 54, 36), (36, 43, 54)),
+)
+
+'''
+This should average 31 moves
+
+phase 1 - EO the edges
+    - make the edges solveable without L L' R R'
+    - (2^12)/2 or 2048 states
+    - averages 4.61 moves
+
+phase 2 - Remove F F' B B'
+    - LB LF RB RF edges must be staged to x-plane
+        12!/(8!*4!) is 495
+    - Stage the UD corners (color all of the U or D corner squares as U)
+        - (3^8)/3 or 2187 states
+    - 495 * 2187 is 1,082,565 states
+    - averages 7.80 moves
+
+phase 3 - Remove U U' D D'
+    move 4 edges to y-plane, this in turn moves the other 4-edges to z-plane
+    There must also be some corner manipulation done here
+    - 8!/(4!*4!) is 70 for the edges
+    - 40,320 for the corners
+    - 70 * 40,320 is 2,822,400
+    - averages 8.70 moves
+
+phase 4 - solve cube
+    - all quarter turns have been removed by this point
+    - (4!^3)/2 is 6912 for the edges
+    - 4!^2 is 576 for the corners
+        it is actually 96 though (I got 96 by building the corners table)
+        576/6 is 96...not sure if that means anything
+
+    - 6912 * 96 is 663,552
+    - averages 10.13 moves
+'''
+
+class LookupTable333Phase1(LookupTable):
+    """
+    lookup-table-3x3x3-step110.txt
+    ==============================
+    0 steps has 1 entries (0 percent, 0.00x previous step)
+    1 steps has 2 entries (0 percent, 2.00x previous step)
+    2 steps has 25 entries (1 percent, 12.50x previous step)
+    3 steps has 202 entries (9 percent, 8.08x previous step)
+    4 steps has 620 entries (30 percent, 3.07x previous step)
+    5 steps has 900 entries (43 percent, 1.45x previous step)
+    6 steps has 285 entries (13 percent, 0.32x previous step)
+    7 steps has 13 entries (0 percent, 0.05x previous step)
+
+    Total: 2,048 entries
+    Average: 4.61 moves
+    """
+
+    edge_states = {
+        (2, 38): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+        (4, 11): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+        (8, 20): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+        (6, 29): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+
+        (13, 42): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+        (15, 22): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+        (31, 24): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+        (33, 40): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+
+        (47, 26): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+        (49, 17): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+        (51, 35): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+        (53, 44): ['UB', 'UL', 'UR', 'UF', 'LB', 'LF', 'RB', 'RF', 'DB', 'DL', 'DR', 'DF'],
+    }
+
+    def __init__(self, parent):
+        LookupTable.__init__(
+            self,
+            parent,
+            directory + "lookup-table-3x3x3-step110.txt",
+            "x1x1U1x1xx1x1L1x1xx1x1F1x1xx1x1R1x1xx1x1B1x1xx1x1D1x1x",
+            linecount=2048,
+        )
+
+    def state(self):
+        state = self.parent.state[:]
+
+        for edge_position in EDGE_TUPLES:
+            for (e0, e1) in edge_position:
+                edge_str = state[e0] + state[e1]
+
+                if edge_str in self.edge_states.get((e0, e1), ()):
+                    state[e0] = "1"
+                    state[e1] = "1"
+                    break
+            else:
+                state[e0] = "0"
+                state[e1] = "0"
+
+        for x in CORNERS:
+            state[x] = "x"
+
+        r = range(1, 55)
+        result = "".join([state[x] for x in r])
+        return result
+
+
+phase2_edge_states = {
+    (2, 38): ['UB', 'UL', 'UR', 'UF', 'DB', 'DL', 'DR', 'DF'],
+    (4, 11): ['UB', 'UL', 'UR', 'UF', 'DB', 'DL', 'DR', 'DF'],
+    (6, 29): ['UB', 'UL', 'UR', 'UF', 'DB', 'DL', 'DR', 'DF'],
+    (8, 20): ['UB', 'UL', 'UR', 'UF', 'DB', 'DL', 'DR', 'DF'],
+
+    (13, 42): ['LB', 'LF', 'RB', 'RF'],
+    (15, 22): ['LB', 'LF', 'RB', 'RF'],
+    (31, 24): ['LB', 'LF', 'RB', 'RF'],
+    (33, 40): ['LB', 'LF', 'RB', 'RF'],
+
+    (47, 26): ['UB', 'UL', 'UR', 'UF', 'DB', 'DL', 'DR', 'DF'],
+    (49, 17): ['UB', 'UL', 'UR', 'UF', 'DB', 'DL', 'DR', 'DF'],
+    (51, 35): ['UB', 'UL', 'UR', 'UF', 'DB', 'DL', 'DR', 'DF'],
+    (53, 44): ['UB', 'UL', 'UR', 'UF', 'DB', 'DL', 'DR', 'DF'],
+}
+
+class LookupTable333Phase2Edges(LookupTable):
+    """
+    lookup-table-3x3x3-step121-edges.txt
+    ====================================
+    0 steps has 1 entries (0 percent, 0.00x previous step)
+    1 steps has 2 entries (0 percent, 2.00x previous step)
+    2 steps has 17 entries (3 percent, 8.50x previous step)
+    3 steps has 104 entries (21 percent, 6.12x previous step)
+    4 steps has 221 entries (44 percent, 2.12x previous step)
+    5 steps has 150 entries (30 percent, 0.68x previous step)
+
+    Total: 495 entries
+    Average: 4.00 moves
+    """
+
+    def __init__(self, parent):
+        LookupTable.__init__(
+            self,
+            parent,
+            directory + "lookup-table-3x3x3-step121-edges.txt",
+            "xxxxx11xx11xx11xx11xxxxx",
+            linecount=495,
+        )
+
+    def state(self):
+        state = self.parent.state[:]
+        X_PLANE_EDGES = ("LB", "BL", "LF", "FL", "RB", "BR", "RF", "FR")
+        ref_phase2_edge_states = phase2_edge_states
+
+        for edge_position in EDGE_TUPLES:
+            for (e0, e1) in edge_position:
+                edge_str = state[e0] + state[e1]
+
+                if edge_str in X_PLANE_EDGES:
+                    if edge_str in phase2_edge_states.get((e0, e1), ()):
+                        state[e0] = "1"
+                        state[e1] = "1"
+                        break
+                else:
+                    state[e0] = "x"
+                    state[e1] = "x"
+                    break
+
+            else:
+                state[e0] = "0"
+                state[e1] = "0"
+
+        return "".join([state[x] for x in EDGES])
+
+
+class LookupTable333Phase2Corners(LookupTable):
+    """
+    lookup-table-3x3x3-step122-corners.txt
+    ======================================
+    0 steps has 1 entries (0 percent, 0.00x previous step)
+    1 steps has 2 entries (0 percent, 2.00x previous step)
+    2 steps has 13 entries (0 percent, 6.50x previous step)
+    3 steps has 70 entries (3 percent, 5.38x previous step)
+    4 steps has 335 entries (15 percent, 4.79x previous step)
+    5 steps has 1,008 entries (46 percent, 3.01x previous step)
+    6 steps has 726 entries (33 percent, 0.72x previous step)
+    7 steps has 32 entries (1 percent, 0.04x previous step)
+
+    Total: 2,187 entries
+    Average: 5.12 moves
+    """
+    def __init__(self, parent):
+        LookupTable.__init__(
+            self,
+            parent,
+            directory + "lookup-table-3x3x3-step122-corners.txt",
+            "UUUUxxxxxxxxxxxxxxxxUUUU",
+            linecount=2187,
+        )
+
+    def state(self):
+        state = self.parent.state[:]
+
+        for x in CORNERS:
+            if state[x] == "U" or state[x] == "D":
+                state[x] = "U"
+            else:
+                state[x] = "x"
+
+        return "".join([state[x] for x in CORNERS])
+
+
+class LookupTable333Phase2(LookupTable):
+    """
+    lookup-table-3x3x3-step120.txt
+    ==============================
+    0 steps has 1 entries (0 percent, 0.00x previous step)
+    1 steps has 2 entries (0 percent, 2.00x previous step)
+    2 steps has 17 entries (0 percent, 8.50x previous step)
+    3 steps has 134 entries (0 percent, 7.88x previous step)
+    4 steps has 1,065 entries (0 percent, 7.95x previous step)
+    5 steps has 8,190 entries (0 percent, 7.69x previous step)
+    6 steps has 54,694 entries (5 percent, 6.68x previous step)
+    7 steps has 267,576 entries (24 percent, 4.89x previous step)
+    8 steps has 560,568 entries (51 percent, 2.09x previous step)
+    9 steps has 187,204 entries (17 percent, 0.33x previous step)
+    10 steps has 3,114 entries (0 percent, 0.02x previous step)
+
+    Total: 1,082,565 entries
+    Average: 7.80 moves
+    """
+
+    def __init__(self, parent):
+        LookupTable.__init__(
+            self,
+            parent,
+            directory + "lookup-table-3x3x3-step120.txt",
+            "UxUxUxUxUxxx1L1xxxxxx1F1xxxxxx1R1xxxxxx1B1xxxUxUxDxUxU",
+            linecount=1082565,
+            init_width=False,
+        )
+
+    def state(self):
+        state = self.parent.state[:]
+        X_PLANE_EDGES = ("LB", "BL", "LF", "FL", "RB", "BR", "RF", "FR")
+        ref_phase2_edge_states = phase2_edge_states
+
+        for edge_position in EDGE_TUPLES:
+            for (e0, e1) in edge_position:
+                edge_str = state[e0] + state[e1]
+
+                if edge_str in X_PLANE_EDGES:
+                    if edge_str in ref_phase2_edge_states.get((e0, e1), ()):
+                        state[e0] = "1"
+                        state[e1] = "1"
+                        break
+                else:
+                    state[e0] = "x"
+                    state[e1] = "x"
+                    break
+
+            else:
+                state[e0] = "0"
+                state[e1] = "0"
+
+        for x in CORNERS:
+            if state[x] == "U" or state[x] == "D":
+                state[x] = "U"
+            else:
+                state[x] = "x"
+
+        r = range(1, 55)
+        return "".join([state[x] for x in r])
+
+    def steps(self, state_to_find):
+        """
+        Return a list of the steps found in the lookup table for the current cube state
+        """
+        edges_state = self.parent.lt_phase2_edges.state()
+        edges_index = int(self.parent.lt_phase2_edges.steps(edges_state)[0])
+
+        corners_state = self.parent.lt_phase2_corners.state()
+        corners_index = int(self.parent.lt_phase2_corners.steps(corners_state)[0])
+
+        corners_count = 2187
+        line_number = (edges_index * corners_count) + corners_index
+
+        step_as_char = self.get_character(line_number)
+        step = char_to_step[step_as_char]
+        return [step,]
+
+
+class LookupTable333Phase3Edges(LookupTable):
+    """
+    lookup-table-3x3x3-step131-edges.txt
+    ====================================
+    0 steps has 1 entries (1 percent, 0.00x previous step)
+    1 steps has 2 entries (2 percent, 2.00x previous step)
+    2 steps has 9 entries (12 percent, 4.50x previous step)
+    3 steps has 30 entries (42 percent, 3.33x previous step)
+    4 steps has 28 entries (40 percent, 0.93x previous step)
+
+    Total: 70 entries
+    Average: 3.17 moves
+    """
+
+    def __init__(self, parent):
+        LookupTable.__init__(
+            self,
+            parent,
+            directory + "lookup-table-3x3x3-step131-edges.txt",
+            "TBD",
+            linecount=70,
+        )
+
+    def state(self):
+        state = self.parent.state[:]
+        Y_PLANE_EDGES = ("UF", "UB", "DF", "DB")
+
+        for edge_position in EDGE_TUPLES:
+            for (e0, e1) in edge_position:
+                edge_str = state[e0] + state[e1]
+
+                if edge_str in Y_PLANE_EDGES:
+                    state[e0] = "F"
+                    state[e1] = "F"
+                else:
+                    state[e0] = "x"
+                    state[e1] = "x"
+                break
+
+        return "".join([state[x] for x in EDGES])
+
+
+class LookupTable333Phase3Corners(LookupTable):
+    """
+    lookup-table-3x3x3-step132-corners.txt
+    ======================================
+    0 steps has 13 entries (0 percent, 0.00x previous step)
+    1 steps has 275 entries (0 percent, 21.15x previous step)
+    2 steps has 480 entries (1 percent, 1.75x previous step)
+    3 steps has 1,152 entries (2 percent, 2.40x previous step)
+    4 steps has 1,728 entries (4 percent, 1.50x previous step)
+    5 steps has 4,800 entries (11 percent, 2.78x previous step)
+    6 steps has 4,224 entries (10 percent, 0.88x previous step)
+    7 steps has 4,992 entries (12 percent, 1.18x previous step)
+    8 steps has 6,528 entries (16 percent, 1.31x previous step)
+    9 steps has 9,216 entries (22 percent, 1.41x previous step)
+    10 steps has 4,992 entries (12 percent, 0.54x previous step)
+    11 steps has 1,920 entries (4 percent, 0.38x previous step)
+
+    Total: 40,320 entries
+    Average: 7.49 moves
+    """
+
+    def __init__(self, parent):
+        LookupTable.__init__(
+            self,
+            parent,
+            directory + "lookup-table-3x3x3-step132-corners.txt",
+            "TBD",
+            linecount=40320,
+        )
+
+    def state(self):
+        state = self.parent.state[:]
+        return "".join([state[x] for x in CORNERS])
+
+
+class LookupTable333Phase3(LookupTable):
+    """
+    lookup-table-3x3x3-step130.txt
+    ==============================
+    0 steps has 13 entries (0 percent, 0.00x previous step)
+    1 steps has 275 entries (0 percent, 21.15x previous step)
+    2 steps has 864 entries (0 percent, 3.14x previous step)
+    3 steps has 3,456 entries (0 percent, 4.00x previous step)
+    4 steps has 11,904 entries (0 percent, 3.44x previous step)
+    5 steps has 50,880 entries (1 percent, 4.27x previous step)
+    6 steps has 173,376 entries (6 percent, 3.41x previous step)
+    7 steps has 358,272 entries (12 percent, 2.07x previous step)
+    8 steps has 495,168 entries (17 percent, 1.38x previous step)
+    9 steps has 678,720 entries (24 percent, 1.37x previous step)
+    10 steps has 692,928 entries (24 percent, 1.02x previous step)
+    11 steps has 307,392 entries (10 percent, 0.44x previous step)
+    12 steps has 46,848 entries (1 percent, 0.15x previous step)
+    13 steps has 2,304 entries (0 percent, 0.05x previous step)
+
+    Total: 2,822,400 entries
+    Average: 8.80 moves
+    """
+
+    state_targets = (
+        'DFDxUxDFDLxLxLxLxLBFBxFxBFBRxRxRxRxRFFFxBxFFFUFUxDxUFU',
+        'DFDxUxDFDLxLxLxRxRBFBxFxFFFRxRxRxLxLFFFxBxBFBUFUxDxUFU',
+        'DFDxUxDFDLxRxLxLxRFFBxFxFFBRxLxRxRxLBFFxBxBFFUFUxDxUFU',
+        'DFDxUxDFDLxRxLxRxLFFBxFxBFFRxLxRxLxRBFFxBxFFBUFUxDxUFU',
+        'DFDxUxDFDRxLxLxLxRBFFxFxFFBLxRxRxRxLFFBxBxBFFUFUxDxUFU',
+        'DFDxUxDFDRxLxLxRxLBFFxFxBFFLxRxRxLxRFFBxBxFFBUFUxDxUFU',
+        'DFDxUxDFDRxRxLxLxLFFFxFxBFBLxLxRxRxRBFBxBxFFFUFUxDxUFU',
+        'DFDxUxDFDRxRxLxRxRFFFxFxFFFLxLxRxLxLBFBxBxBFBUFUxDxUFU',
+        'DFDxUxUFULxLxLxLxLFFFxFxBFBRxRxRxRxRFFFxBxBFBUFUxDxDFD',
+        'DFDxUxUFULxLxLxRxRFFBxFxBFFLxLxRxRxRBFFxBxFFBDFDxDxUFU',
+        'DFDxUxUFULxLxLxRxRFFBxFxFFBLxLxRxRxRBFFxBxBFFUFUxDxDFD',
+        'DFDxUxUFULxLxLxRxRFFFxFxBFBRxRxRxLxLFFFxBxBFBDFDxDxUFU',
+        'DFDxUxUFULxRxLxLxRBFBxFxBFBLxRxRxLxRFFFxBxFFFDFDxDxUFU',
+        'DFDxUxUFULxRxLxLxRBFBxFxFFFLxRxRxLxRFFFxBxBFBUFUxDxDFD',
+        'DFDxUxUFULxRxLxLxRBFFxFxBFFRxLxRxRxLBFFxBxBFFDFDxDxUFU',
+        'DFDxUxUFULxRxLxRxLBFFxFxBFFRxLxRxLxRBFFxBxBFFUFUxDxDFD',
+        'DFDxUxUFURxLxLxLxRFFBxFxFFBLxRxRxRxLFFBxBxFFBUFUxDxDFD',
+        'DFDxUxUFURxLxLxRxLFFBxFxFFBLxRxRxLxRFFBxBxFFBDFDxDxUFU',
+        'DFDxUxUFURxLxLxRxLFFFxFxBFBRxLxRxRxLBFBxBxFFFUFUxDxDFD',
+        'DFDxUxUFURxLxLxRxLFFFxFxFFFRxLxRxRxLBFBxBxBFBDFDxDxUFU',
+        'DFDxUxUFURxRxLxLxLBFBxFxFFFLxLxRxRxRBFBxBxFFFDFDxDxUFU',
+        'DFDxUxUFURxRxLxLxLBFFxFxBFFRxRxRxLxLFFBxBxFFBUFUxDxDFD',
+        'DFDxUxUFURxRxLxLxLBFFxFxFFBRxRxRxLxLFFBxBxBFFDFDxDxUFU',
+        'DFDxUxUFURxRxLxRxRBFBxFxFFFLxLxRxLxLBFBxBxFFFUFUxDxDFD',
+        'DFUxUxDFULxLxLxLxLBFFxFxBFFRxRxRxRxRBFFxBxBFFUFDxDxUFD',
+        'DFUxUxDFULxLxLxRxRBFBxFxBFBLxLxRxRxRFFFxBxFFFDFUxDxDFU',
+        'DFUxUxDFULxLxLxRxRBFBxFxFFFLxLxRxRxRFFFxBxBFBUFDxDxUFD',
+        'DFUxUxDFULxLxLxRxRBFFxFxBFFRxRxRxLxLBFFxBxBFFDFUxDxDFU',
+        'DFUxUxDFULxRxLxLxRFFBxFxBFFLxRxRxLxRBFFxBxFFBDFUxDxDFU',
+        'DFUxUxDFULxRxLxLxRFFBxFxFFBLxRxRxLxRBFFxBxBFFUFDxDxUFD',
+        'DFUxUxDFULxRxLxLxRFFFxFxBFBRxLxRxRxLFFFxBxBFBDFUxDxDFU',
+        'DFUxUxDFULxRxLxRxLFFFxFxBFBRxLxRxLxRFFFxBxBFBUFDxDxUFD',
+        'DFUxUxDFURxLxLxLxRBFBxFxFFFLxRxRxRxLBFBxBxFFFUFDxDxUFD',
+        'DFUxUxDFURxLxLxRxLBFBxFxFFFLxRxRxLxRBFBxBxFFFDFUxDxDFU',
+        'DFUxUxDFURxLxLxRxLBFFxFxBFFRxLxRxRxLFFBxBxFFBUFDxDxUFD',
+        'DFUxUxDFURxLxLxRxLBFFxFxFFBRxLxRxRxLFFBxBxBFFDFUxDxDFU',
+        'DFUxUxDFURxRxLxLxLFFBxFxFFBLxLxRxRxRFFBxBxFFBDFUxDxDFU',
+        'DFUxUxDFURxRxLxLxLFFFxFxBFBRxRxRxLxLBFBxBxFFFUFDxDxUFD',
+        'DFUxUxDFURxRxLxLxLFFFxFxFFFRxRxRxLxLBFBxBxBFBDFUxDxDFU',
+        'DFUxUxDFURxRxLxRxRFFBxFxFFBLxLxRxLxLFFBxBxFFBUFDxDxUFD',
+        'DFUxUxUFDLxLxLxLxLFFBxFxBFFRxRxRxRxRBFFxBxFFBUFDxDxDFU',
+        'DFUxUxUFDLxLxLxRxRFFBxFxFFBRxRxRxLxLBFFxBxBFFUFDxDxDFU',
+        'DFUxUxUFDLxRxLxLxRBFBxFxFFFRxLxRxRxLFFFxBxBFBUFDxDxDFU',
+        'DFUxUxUFDLxRxLxRxLBFBxFxBFBRxLxRxLxRFFFxBxFFFUFDxDxDFU',
+        'DFUxUxUFDRxLxLxLxRFFFxFxFFFLxRxRxRxLBFBxBxBFBUFDxDxDFU',
+        'DFUxUxUFDRxLxLxRxLFFFxFxBFBLxRxRxLxRBFBxBxFFFUFDxDxDFU',
+        'DFUxUxUFDRxRxLxLxLBFFxFxBFFLxLxRxRxRFFBxBxFFBUFDxDxDFU',
+        'DFUxUxUFDRxRxLxRxRBFFxFxFFBLxLxRxLxLFFBxBxBFFUFDxDxDFU',
+        'UFDxUxDFULxLxLxLxLBFFxFxFFBRxRxRxRxRFFBxBxBFFDFUxDxUFD',
+        'UFDxUxDFULxLxLxRxRBFFxFxBFFRxRxRxLxLFFBxBxFFBDFUxDxUFD',
+        'UFDxUxDFULxRxLxLxRFFFxFxBFBRxLxRxRxLBFBxBxFFFDFUxDxUFD',
+        'UFDxUxDFULxRxLxRxLFFFxFxFFFRxLxRxLxRBFBxBxBFBDFUxDxUFD',
+        'UFDxUxDFURxLxLxLxRBFBxFxBFBLxRxRxRxLFFFxBxFFFDFUxDxUFD',
+        'UFDxUxDFURxLxLxRxLBFBxFxFFFLxRxRxLxRFFFxBxBFBDFUxDxUFD',
+        'UFDxUxDFURxRxLxLxLFFBxFxFFBLxLxRxRxRBFFxBxBFFDFUxDxUFD',
+        'UFDxUxDFURxRxLxRxRFFBxFxBFFLxLxRxLxLBFFxBxFFBDFUxDxUFD',
+        'UFDxUxUFDLxLxLxLxLFFBxFxFFBRxRxRxRxRFFBxBxFFBDFUxDxDFU',
+        'UFDxUxUFDLxLxLxRxRFFBxFxFFBRxRxRxLxLFFBxBxFFBUFDxDxUFD',
+        'UFDxUxUFDLxLxLxRxRFFFxFxBFBLxLxRxRxRBFBxBxFFFDFUxDxDFU',
+        'UFDxUxUFDLxLxLxRxRFFFxFxFFFLxLxRxRxRBFBxBxBFBUFDxDxUFD',
+        'UFDxUxUFDLxRxLxLxRBFBxFxFFFRxLxRxRxLBFBxBxFFFUFDxDxUFD',
+        'UFDxUxUFDLxRxLxLxRBFFxFxBFFLxRxRxLxRFFBxBxFFBDFUxDxDFU',
+        'UFDxUxUFDLxRxLxLxRBFFxFxFFBLxRxRxLxRFFBxBxBFFUFDxDxUFD',
+        'UFDxUxUFDLxRxLxRxLBFBxFxFFFRxLxRxLxRBFBxBxFFFDFUxDxDFU',
+        'UFDxUxUFDRxLxLxLxRFFFxFxBFBLxRxRxRxLFFFxBxBFBDFUxDxDFU',
+        'UFDxUxUFDRxLxLxRxLFFBxFxBFFRxLxRxRxLBFFxBxFFBUFDxDxUFD',
+        'UFDxUxUFDRxLxLxRxLFFBxFxFFBRxLxRxRxLBFFxBxBFFDFUxDxDFU',
+        'UFDxUxUFDRxLxLxRxLFFFxFxBFBLxRxRxLxRFFFxBxBFBUFDxDxUFD',
+        'UFDxUxUFDRxRxLxLxLBFBxFxBFBRxRxRxLxLFFFxBxFFFUFDxDxUFD',
+        'UFDxUxUFDRxRxLxLxLBFBxFxFFFRxRxRxLxLFFFxBxBFBDFUxDxDFU',
+        'UFDxUxUFDRxRxLxLxLBFFxFxBFFLxLxRxRxRBFFxBxBFFUFDxDxUFD',
+        'UFDxUxUFDRxRxLxRxRBFFxFxBFFLxLxRxLxLBFFxBxBFFDFUxDxDFU',
+        'UFUxUxDFDLxLxLxLxLBFBxFxFFFRxRxRxRxRBFBxBxFFFDFDxDxUFU',
+        'UFUxUxDFDLxLxLxRxRBFBxFxFFFRxRxRxLxLBFBxBxFFFUFUxDxDFD',
+        'UFUxUxDFDLxLxLxRxRBFFxFxBFFLxLxRxRxRFFBxBxFFBDFDxDxUFU',
+        'UFUxUxDFDLxLxLxRxRBFFxFxFFBLxLxRxRxRFFBxBxBFFUFUxDxDFD',
+        'UFUxUxDFDLxRxLxLxRFFBxFxFFBRxLxRxRxLFFBxBxFFBUFUxDxDFD',
+        'UFUxUxDFDLxRxLxLxRFFFxFxBFBLxRxRxLxRBFBxBxFFFDFDxDxUFU',
+        'UFUxUxDFDLxRxLxLxRFFFxFxFFFLxRxRxLxRBFBxBxBFBUFUxDxDFD',
+        'UFUxUxDFDLxRxLxRxLFFBxFxFFBRxLxRxLxRFFBxBxFFBDFDxDxUFU',
+        'UFUxUxDFDRxLxLxLxRBFFxFxBFFLxRxRxRxLBFFxBxBFFDFDxDxUFU',
+        'UFUxUxDFDRxLxLxRxLBFBxFxBFBRxLxRxRxLFFFxBxFFFUFUxDxDFD',
+        'UFUxUxDFDRxLxLxRxLBFBxFxFFFRxLxRxRxLFFFxBxBFBDFDxDxUFU',
+        'UFUxUxDFDRxLxLxRxLBFFxFxBFFLxRxRxLxRBFFxBxBFFUFUxDxDFD',
+        'UFUxUxDFDRxRxLxLxLFFBxFxBFFRxRxRxLxLBFFxBxFFBUFUxDxDFD',
+        'UFUxUxDFDRxRxLxLxLFFBxFxFFBRxRxRxLxLBFFxBxBFFDFDxDxUFU',
+        'UFUxUxDFDRxRxLxLxLFFFxFxBFBLxLxRxRxRFFFxBxBFBUFUxDxDFD',
+        'UFUxUxDFDRxRxLxRxRFFFxFxBFBLxLxRxLxLFFFxBxBFBDFDxDxUFU',
+        'UFUxUxUFULxLxLxLxLFFFxFxFFFRxRxRxRxRBFBxBxBFBDFDxDxDFD',
+        'UFUxUxUFULxLxLxRxRFFFxFxBFBRxRxRxLxLBFBxBxFFFDFDxDxDFD',
+        'UFUxUxUFULxRxLxLxRBFFxFxBFFRxLxRxRxLFFBxBxFFBDFDxDxDFD',
+        'UFUxUxUFULxRxLxRxLBFFxFxFFBRxLxRxLxRFFBxBxBFFDFDxDxDFD',
+        'UFUxUxUFURxLxLxLxRFFBxFxBFFLxRxRxRxLBFFxBxFFBDFDxDxDFD',
+        'UFUxUxUFURxLxLxRxLFFBxFxFFBLxRxRxLxRBFFxBxBFFDFDxDxDFD',
+        'UFUxUxUFURxRxLxLxLBFBxFxFFFLxLxRxRxRFFFxBxBFBDFDxDxDFD',
+        'UFUxUxUFURxRxLxRxRBFBxFxBFBLxLxRxLxLFFFxBxFFFDFDxDxDFD',
+    )
+
+    def __init__(self, parent):
+        LookupTable.__init__(
+            self,
+            parent,
+            directory + "lookup-table-3x3x3-step130.txt",
+            self.state_targets,
+            linecount=2822400,
+            init_width=False,
+        )
+
+    def state(self):
+        state = self.parent.state[:]
+        Y_PLANE_EDGES = ("UF", "UB", "DF", "DB")
+
+        for edge_position in EDGE_TUPLES:
+            for (e0, e1) in edge_position:
+                edge_str = state[e0] + state[e1]
+
+                if edge_str in Y_PLANE_EDGES:
+                    state[e0] = "F"
+                    state[e1] = "F"
+                else:
+                    state[e0] = "x"
+                    state[e1] = "x"
+                break
+
+        r = range(1, 55)
+        return "".join([state[x] for x in r])
+
+    def steps(self, state_to_find):
+        """
+        Return a list of the steps found in the lookup table for the current cube state
+        """
+        edges_state = self.parent.lt_phase3_edges.state()
+        edges_index = int(self.parent.lt_phase3_edges.steps(edges_state)[0])
+
+        corners_state = self.parent.lt_phase3_corners.state()
+        corners_index = int(self.parent.lt_phase3_corners.steps(corners_state)[0])
+
+        corners_count = 40320
+        line_number = (edges_index * corners_count) + corners_index
+
+        step_as_char = self.get_character(line_number)
+        step = char_to_step[step_as_char]
+        return [step,]
+
+
+
+class LookupTable333Phase4Edges(LookupTable):
+    """
+    lookup-table-3x3x3-step141-edges.txt
+    ====================================
+    0 steps has 1 entries (0 percent, 0.00x previous step)
+    1 steps has 6 entries (0 percent, 6.00x previous step)
+    2 steps has 27 entries (0 percent, 4.50x previous step)
+    3 steps has 120 entries (1 percent, 4.44x previous step)
+    4 steps has 519 entries (7 percent, 4.33x previous step)
+    5 steps has 1,582 entries (22 percent, 3.05x previous step)
+    6 steps has 2,911 entries (42 percent, 1.84x previous step)
+    7 steps has 1,588 entries (22 percent, 0.55x previous step)
+    8 steps has 158 entries (2 percent, 0.10x previous step)
+
+    Total: 6,912 entries
+    Average: 5.82 moves
+    """
+    def __init__(self, parent):
+        LookupTable.__init__(
+            self,
+            parent,
+            directory + "lookup-table-3x3x3-step141-edges.txt",
+            "UUUULLLLFFFFRRRRBBBBDDDD",
+            linecount=6912,
+        )
+
+    def state(self):
+        parent_state = self.parent.state
+        return "".join([parent_state[x] for x in EDGES])
+
+
+class LookupTable333Phase4Corners(LookupTable):
+    """
+    lookup-table-3x3x3-step142-corners.txt
+    ======================================
+    0 steps has 1 entries (1 percent, 0.00x previous step)
+    1 steps has 6 entries (6 percent, 6.00x previous step)
+    2 steps has 27 entries (28 percent, 4.50x previous step)
+    3 steps has 42 entries (43 percent, 1.56x previous step)
+    4 steps has 20 entries (20 percent, 0.48x previous step)
+
+    Total: 96 entries
+    Average: 2.77 moves
+    """
+    def __init__(self, parent):
+        LookupTable.__init__(
+            self,
+            parent,
+            directory + "lookup-table-3x3x3-step142-corners.txt",
+            "UUUULLLLFFFFRRRRBBBBDDDD",
+            linecount=96,
+        )
+
+    def state(self):
+        parent_state = self.parent.state
+        return "".join([parent_state[x] for x in CORNERS])
+
+
+class LookupTable333Phase4(LookupTable):
+    """
+    lookup-table-3x3x3-step140.txt
+    ==============================
+    0 steps has 1 entries (0 percent, 0.00x previous step)
+    1 steps has 6 entries (0 percent, 6.00x previous step)
+    2 steps has 27 entries (0 percent, 4.50x previous step)
+    3 steps has 120 entries (0 percent, 4.44x previous step)
+    4 steps has 519 entries (0 percent, 4.33x previous step)
+    5 steps has 1,932 entries (0 percent, 3.72x previous step)
+    6 steps has 6,484 entries (0 percent, 3.36x previous step)
+    7 steps has 20,310 entries (3 percent, 3.13x previous step)
+    8 steps has 55,034 entries (8 percent, 2.71x previous step)
+    9 steps has 113,892 entries (17 percent, 2.07x previous step)
+    10 steps has 178,495 entries (26 percent, 1.57x previous step)
+    11 steps has 179,196 entries (27 percent, 1.00x previous step)
+    12 steps has 89,728 entries (13 percent, 0.50x previous step)
+    13 steps has 16,176 entries (2 percent, 0.18x previous step)
+    14 steps has 1,488 entries (0 percent, 0.09x previous step)
+    15 steps has 144 entries (0 percent, 0.10x previous step)
+
+    Total: 663,552 entries
+    Average: 10.13 moves
+    """
+
+    def __init__(self, parent):
+        LookupTable.__init__(
+            self,
+            parent,
+            directory + "lookup-table-3x3x3-step140.txt",
+            "UUUUUUUUULLLLLLLLLFFFFFFFFFRRRRRRRRRBBBBBBBBBDDDDDDDDD",
+            linecount=663552,
+            init_width=False,
+        )
+
+    def state(self):
+        parent_state = self.parent.state
+        r = range(1, 55)
+        return "".join([parent_state[x] for x in r])
+
+    def steps(self, state_to_find):
+        """
+        Return a list of the steps found in the lookup table for the current cube state
+        """
+        edges_state = self.parent.lt_phase4_edges.state()
+        edges_index = int(self.parent.lt_phase4_edges.steps(edges_state)[0])
+
+        corners_state = self.parent.lt_phase4_corners.state()
+        corners_index = int(self.parent.lt_phase4_corners.steps(corners_state)[0])
+
+        corners_count = 96
+        line_number = (edges_index * corners_count) + corners_index
+
+        step_as_char = self.get_character(line_number)
+        step = char_to_step[step_as_char]
+        return [step,]
+
+
 class RubiksCube333(object):
     """
     A class for solving a 3x3x3 Rubiks Cube
@@ -447,53 +1057,48 @@ class RubiksCube333(object):
 
     def __init__(self, state, order):
         SQUARES_PER_SIDE = 9
-        self.FACELET_COUNT = SQUARES_PER_SIDE * 6
+        foo = []
+        init_state = ["dummy"]
+        init_state.extend(list(state))
 
-        self.solution = []
-        self.state = []
-        state = list(state)
-
-        if order == 'URFDLB':
-            self.state.extend(state[0:SQUARES_PER_SIDE])                            # U
-            self.state.extend(state[(SQUARES_PER_SIDE * 4):(SQUARES_PER_SIDE * 5)]) # L
-            self.state.extend(state[(SQUARES_PER_SIDE * 2):(SQUARES_PER_SIDE * 3)]) # F
-            self.state.extend(state[(SQUARES_PER_SIDE * 1):(SQUARES_PER_SIDE * 2)]) # R
-            self.state.extend(state[(SQUARES_PER_SIDE * 5):(SQUARES_PER_SIDE * 6)]) # B
-            self.state.extend(state[(SQUARES_PER_SIDE * 3):(SQUARES_PER_SIDE * 4)]) # D
-        elif order == 'ULFRBD':
-            self.state.extend(state[0:SQUARES_PER_SIDE])                            # U
-            self.state.extend(state[(SQUARES_PER_SIDE * 1):(SQUARES_PER_SIDE * 2)]) # L
-            self.state.extend(state[(SQUARES_PER_SIDE * 2):(SQUARES_PER_SIDE * 3)]) # F
-            self.state.extend(state[(SQUARES_PER_SIDE * 3):(SQUARES_PER_SIDE * 4)]) # R
-            self.state.extend(state[(SQUARES_PER_SIDE * 4):(SQUARES_PER_SIDE * 5)]) # B
-            self.state.extend(state[(SQUARES_PER_SIDE * 5):(SQUARES_PER_SIDE * 6)]) # D
+        if order == "URFDLB":
+            foo.extend(init_state[1 : SQUARES_PER_SIDE + 1])  # U
+            foo.extend(init_state[(SQUARES_PER_SIDE * 4) + 1 : (SQUARES_PER_SIDE * 5) + 1])  # L
+            foo.extend(init_state[(SQUARES_PER_SIDE * 2) + 1 : (SQUARES_PER_SIDE * 3) + 1])  # F
+            foo.extend(init_state[(SQUARES_PER_SIDE * 1) + 1 : (SQUARES_PER_SIDE * 2) + 1])  # R
+            foo.extend(init_state[(SQUARES_PER_SIDE * 5) + 1 : (SQUARES_PER_SIDE * 6) + 1])  # B
+            foo.extend(init_state[(SQUARES_PER_SIDE * 3) + 1 : (SQUARES_PER_SIDE * 4) + 1])  # D
+        elif order == "ULFRBD":
+            foo.extend(init_state[1 : SQUARES_PER_SIDE + 1])  # U
+            foo.extend(init_state[(SQUARES_PER_SIDE * 1) + 1 : (SQUARES_PER_SIDE * 2) + 1])  # L
+            foo.extend(init_state[(SQUARES_PER_SIDE * 2) + 1 : (SQUARES_PER_SIDE * 3) + 1])  # F
+            foo.extend(init_state[(SQUARES_PER_SIDE * 3) + 1 : (SQUARES_PER_SIDE * 4) + 1])  # R
+            foo.extend(init_state[(SQUARES_PER_SIDE * 4) + 1 : (SQUARES_PER_SIDE * 5) + 1])  # B
+            foo.extend(init_state[(SQUARES_PER_SIDE * 5) + 1 : (SQUARES_PER_SIDE * 6) + 1])  # D
         else:
             raise Exception("Add support for order %s" % order)
 
-        for x in range(self.FACELET_COUNT):
-            if self.state[x] == "U":
-                self.state[x] = 0
-            elif self.state[x] == "L":
-                self.state[x] = 1
-            elif self.state[x] == "F":
-                self.state[x] = 2
-            elif self.state[x] == "R":
-                self.state[x] = 3
-            elif self.state[x] == "B":
-                self.state[x] = 4
-            elif self.state[x] == "D":
-                self.state[x] = 5
+        self.solution = []
+        self.state = ["x"]
+        for side_name in foo:
+            self.state.append(side_name)
 
-        self.state = bytearray(self.state)
-        self.state_scratchpad = bytearray(self.FACELET_COUNT)
-        self.state_backup = bytearray(self.FACELET_COUNT)
+        self.state_scratchpad = self.state[:]
+        self.state_backup = self.state[:]
 
-        self.state_scratchpad[:] = self.state
-        self.state_backup[:] = self.state
+        self.lt_phase1 = LookupTable333Phase1(self)
 
-        #self.state_scratchpad = self.state[:]
-        #self.state_backup = self.state[:]
-        self.index_init_all()
+        self.lt_phase2 = LookupTable333Phase2(self)
+        self.lt_phase2_edges = LookupTable333Phase2Edges(self)
+        self.lt_phase2_corners = LookupTable333Phase2Corners(self)
+
+        self.lt_phase3 = LookupTable333Phase3(self)
+        self.lt_phase3_edges = LookupTable333Phase3Edges(self)
+        self.lt_phase3_corners = LookupTable333Phase3Corners(self)
+
+        self.lt_phase4_edges = LookupTable333Phase4Edges(self)
+        self.lt_phase4_corners = LookupTable333Phase4Corners(self)
+        self.lt_phase4 = LookupTable333Phase4(self)
 
     # @timed_function
     def re_init(self):
@@ -501,69 +1106,11 @@ class RubiksCube333(object):
         self.state = self.state_backup[:]
 
     # @timed_function
-    def load_tables(self):
-
-        # Get the directory where cube.py was installed...example:
-        # /usr/lib/micropython/rubikscubesolvermicropython/cube.py
-        directory = "/".join(__file__.split("/")[:-1]) + "/"
-
-        with open(directory + "mtd0.txt", "r") as fh:
-            self.mtd0 = fh.read()
-
-        with open(directory + "mtd1.txt", "r") as fh:
-            self.mtd1 = fh.read()
-
-        with open(directory + "mtd2.txt", "r") as fh:
-            self.mtd2 = fh.read()
-
-        with open(directory + "mtd3.txt", "r") as fh:
-            self.mtd3 = fh.read()
-
-        with open(directory + "mtd4.txt", "r") as fh:
-            self.mtd4 = fh.read()
-
-        with open(directory + "mtd5.txt", "r") as fh:
-            self.mtd5 = fh.read()
-
-        with open(directory + "mtd6.txt", "r") as fh:
-            self.mtd6 = fh.read()
-
-        with open(directory + "mtd7.txt", "r") as fh:
-            self.mtd7 = fh.read()
-
-        with open(directory + "mtd8.txt", "r") as fh:
-            self.mtd8 = fh.read()
-
-        # We should be able to drop in different phases/tables in the future
-        self.phases = (
-            (const(0), "two edges", (), ((D, F), (D, R)),                           const(3), self.mtd0, const(527), const(5)),
-            (const(1), "one corner, one edge", ((D, F, R),), ((F, R),),             const(4), self.mtd1, const(479), const(7)),
-            (const(2), "one edge", (), ((D, B),),                                   const(3), self.mtd2, const(17),  const(5)),
-            (const(3), "one corner, one edge", ((D, R, B),), ((R, B),),             const(5), self.mtd3, const(335), const(9)),
-            (const(4), "one edge", (), ((D, L),),                                   const(3), self.mtd4, const(13),  const(5)),
-            (const(5), "one corner, one edge", ((D, B, L),), ((B, L),),             const(5), self.mtd5, const(215), const(9)),
-            (const(6), "one corner, one edge", ((D, L, F),), ((L, F),),             const(5), self.mtd6, const(149), const(9)),
-            (const(7), "last three corners", ((U, R, F), (U, F, L), (U, L, B)), (), const(7), self.mtd7, const(647), const(13)),
-            (const(8), "last three edges", (), ((U, R), (U, F), (U, L)),            const(8), self.mtd8, const(95),  const(15)),
-        )
-
-    # @timed_function
     def get_kociemba_string(self):
         """
         Return the cube state as a kociemba string
         """
-        kociemba_sequence = (
-            0, 1, 2, 3, 4, 5, 6, 7, 8, # U
-            27, 28, 29, 30, 31, 32, 33, 34, 35, # R
-            18, 19, 20, 21, 22, 23, 24, 25, 26, # F
-            45, 46, 47, 48, 49, 50, 51, 52, 53, # D
-            9, 10, 11, 12, 13, 14, 15, 16, 17, # L
-            36, 37, 38, 39, 40, 41, 42, 43, 44, # B
-        )
-        result = []
-        for x in kociemba_sequence:
-            result.append(side2str[self.state[x]])
-        return "".join(result)
+        return "".join([self.state[x] for x in kociemba_sequence])
 
     # @timed_function
     def rotate(self, step):
@@ -571,8 +1118,8 @@ class RubiksCube333(object):
         Apply `step` to the cube and append `step` to our solution list
         """
         ref_swaps_333 = swaps_333
-        o = self.state  # old
-        n = self.state_scratchpad  # new
+        ref_state = self.state
+        ref_state_scratchpad = self.state_scratchpad
 
         # On a laptop the following list comp is the fastest way to do the rotate. This involves
         # allocating memory for the new list everytime though.  That malloc is about 600x slower
@@ -583,10 +1130,10 @@ class RubiksCube333(object):
         # So what we do instead is use a scratchpad bytearray to do the rotate without
         # any mallocs
         for (i, x) in enumerate(ref_swaps_333[step]):
-            n[i] = o[x]
+            ref_state_scratchpad[i] = ref_state[x]
 
-        for i in range(54):
-            o[i] = n[i]
+        for i in range(55):
+            ref_state[i] = ref_state_scratchpad[i]
 
         self.solution.append(step)
 
@@ -597,20 +1144,20 @@ class RubiksCube333(object):
         """
 
         if y == "U":
-            pos_to_check = 4
+            pos_to_check = 5
         elif y == "L":
-            pos_to_check = 13
+            pos_to_check = 14
         elif y == "F":
-            pos_to_check = 22
+            pos_to_check = 23
         elif y == "R":
-            pos_to_check = 31
+            pos_to_check = 32
         elif y == "B":
-            pos_to_check = 40
+            pos_to_check = 41
         elif y == "D":
-            pos_to_check = 49
+            pos_to_check = 50
 
-        F_pos_to_check = 22
-        D_pos_to_check = 49
+        F_pos_to_check = 23
+        D_pos_to_check = 50
 
         while self.state[pos_to_check] != x:
 
@@ -635,111 +1182,14 @@ class RubiksCube333(object):
         """
         Rotate side U to the top
         """
-        self.rotate_side_X_to_Y(U, "U")
+        self.rotate_side_X_to_Y("U", "U")
 
     # @timed_function
     def rotate_F_to_F(self):
         """
         Rotate side F to the front
         """
-        self.rotate_side_X_to_Y(F, "F")
-
-    # @timed_function
-    def recolor(self, recolor_map):
-        """
-        Recolor the squares of the cube per `recolor_map`
-        """
-        ref_state = self.state
-        r = range(self.FACELET_COUNT)
-        for x in r:
-            ref_state[x] = recolor_map[ref_state[x]]
-
-    # @timed_function
-    def index_init_all(self):
-        """
-        Initialize all indexes. This is called at the start of the solve for a cube.
-        """
-        NPIECE = 3
-        self.idx_idx = [None] * NPIECE
-        self.idx_nc = 0
-        self.idx_ne = 0
-        self.idx = 0
-        self.idx_ic = 24
-        self.idx_ie = 24
-
-    # @timed_function
-    def index_init(self):
-        """
-        Initialize indexes. This is called at the start of each phase for solving a cube.
-        """
-        self.idx_nc = 0
-        self.idx_ne = 0
-        self.idx = 0
-
-    # @timed_function
-    def index_last(self):
-        """
-        Initialize indexes for the last phase
-        """
-        self.idx = ((self.idx >> 2) <<1 ) | (self.idx & 1);
-
-    # @timed_function
-    def index_corner(self, f0, f1, f2):
-        """
-        Set idx, idx_ic and idx_nc for corner `f0/f1/f2`
-        """
-        ref_CORNER_TUPLES = CORNER_TUPLES
-        ref_state = self.state
-
-        for (ic, corner0, corner1, corner2) in ref_CORNER_TUPLES:
-            if ref_state[corner0] == f0 and ref_state[corner1] == f1 and ref_state[corner2] == f2:
-                break
-        else:
-            raise Exception("Could not find corner f0/f1/f2 %s/%s/%s in\n%s\n" % (f0, f1, f2, cube2str(self.state)))
-
-        ref_idx_ic = self.idx_ic
-        ref_idx_nc = self.idx_nc
-        ref_idx_idx = self.idx_idx
-        ref_idx = self.idx
-        r = range(ref_idx_nc)
-
-        for i in r:
-            if ic > ref_idx_idx[i]:
-                ic -= 3
-
-        self.idx = (ref_idx * ref_idx_ic) + ic
-        self.idx_idx[ref_idx_nc] = ic
-        self.idx_nc += 1
-        self.idx_ic -= 3
-
-    # @timed_function
-    def index_edge(self, f0, f1):
-        """
-        Set idx, idx_ie and idx_ne for edge `f0/f1`
-        """
-        ref_EDGE_TUPLES = EDGE_TUPLES
-        ref_state = self.state
-
-        for (ie, edge0, edge1) in ref_EDGE_TUPLES:
-            if ref_state[edge0] == f0 and ref_state[edge1] == f1:
-                break
-        else:
-            raise Exception("Could not find edge f0/f1 %s/%s\n%s" % (f0, f1, cube2str(ref_state)))
-
-        ref_idx_ie = self.idx_ie
-        ref_idx_ne = self.idx_ne
-        ref_idx_idx = self.idx_idx
-        ref_idx = self.idx
-        r = range(ref_idx_ne)
-
-        for i in r:
-            if ie > ref_idx_idx[i]:
-                ie -= 2
-
-        self.idx = (ref_idx * ref_idx_ie) + ie
-        self.idx_idx[ref_idx_ne] = ie
-        self.idx_ne += 1
-        self.idx_ie -= 2
+        self.rotate_side_X_to_Y("F", "F")
 
     # @timed_function
     def verify_solution(self, original_state, solution):
@@ -763,182 +1213,6 @@ class RubiksCube333(object):
             sys.exit(0)
 
     # @timed_function
-    def solve_phase(self, phase, desc, mtb, mtd, sz, mvm):
-        """
-        Solve a single phase per the `mtd` table
-        `sz` is how many 'mtb' long move sequenes there are in the mtd file
-        """
-        self.idx = sz - self.idx
-        idx = self.idx
-
-        if idx > 0:
-            ref_get_lines_in_file = get_lines_in_file
-            ref_get_step_string_side2str = get_step_string_side2str
-            ref_rotate = self.rotate
-            ref_state = self.state
-            ref_state_scratchpad = self.state_scratchpad
-            ref_solution = self.solution
-
-            LINE_WIDTH = const(5)
-            #mvm = (mtb * 2) - 1
-            # print("\nphase %d %s: mtb %d, mtd %s, mvm %d, sz %d, idx %d" % (phase, desc, mtb, mtd, mvm, sz, self.idx))
-
-            i = (idx - 1) * mtb
-            orig_i = i
-
-            # unrolled this to avoid a function call
-            #steps = ref_get_lines_in_file(mtd, LINE_WIDTH, i, mvm)
-            steps = [int(x, 16) for x in mtd[LINE_WIDTH * i : (LINE_WIDTH * i) + (LINE_WIDTH * mvm)].splitlines()]
-
-            b = steps[0]
-            i += 1
-
-            if b != 0xFF:
-                mv = 0
-                f0 = int(b / 3)
-
-                # unrolled this to avoid a function call
-                # r0 = ref_RFIX(b - (f0 * 3) + 1)
-                r0 = ((b - (f0 * 3) + 2) & 3) - 1
-
-                # unrolled this to avoid a function call
-                # step = ref_get_step_string(f0, r0)
-                r0 &= 3
-
-                # r is 1/4 forward, 1/4 backward or 1/2 turn
-                if r0 == 1:
-                    step = ref_get_step_string_side2str[f0]
-                elif r0 == 2:
-                    step = "{}2".format(ref_get_step_string_side2str[f0])
-                elif r0 == 3:
-                    step = "{}'".format(ref_get_step_string_side2str[f0])
-                else:
-                    raise Exception("rotate r0 '%s' is invalid" % r0)
-
-                ref_rotate(step)
-                mv += 1
-
-                while mv < mvm:
-                    b >>= 4
-
-                    if (mv & 1) != 0:
-                        b = steps[i - orig_i]
-                        i += 1
-
-                    b0 = b & 0xF
-
-                    if b0 == 0xF:
-                        break
-
-                    f1 = int(b0 / 3)
-
-                    # unrolled this to avoid a function call
-                    # r0 = ref_RFIX(b0 - (f1 * 3) + 1)
-                    r0 = ((b0 - (f1 * 3) + 2) & 3) - 1
-
-                    if f1 >= f0:
-                        f1 += 1
-
-                    f0 = f1
-
-                    # unrolled this to avoid a function call
-                    #step = ref_get_step_string(f0, r0)
-                    r0 &= 3
-
-                    # r is 1/4 forward, 1/4 backward or 1/2 turn
-                    if r0 == 1:
-                        step = ref_get_step_string_side2str[f0]
-                    elif r0 == 2:
-                        step = "{}2".format(ref_get_step_string_side2str[f0])
-                    elif r0 == 3:
-                        step = "{}'".format(ref_get_step_string_side2str[f0])
-                    else:
-                        raise Exception("rotate r0 '%s' is invalid" % r0)
-
-                    ref_rotate(step)
-                    mv += 1
-
-    def _solve(self, original_state, original_solution, rotations_to_try, phases_to_solve):
-        ref_rotate = self.rotate
-        ref_recolor = self.recolor
-        ref_phases = self.phases
-        ref_index_init_all = self.index_init_all
-        ref_index_corner = self.index_corner
-        ref_index_edge = self.index_edge
-        ref_index_last = self.index_last
-        ref_solve_phase = self.solve_phase
-        ref_rotations_24 = rotations_24
-
-        min_solution = None
-        min_solution_len = 999
-        min_rotations = None
-        min_rotation_count = None
-
-        last_phase = const(8)
-
-        # Try all 'rotations_to_try', find the one with the shortest solution
-        for (rotation_count, rotations) in rotations_to_try:
-            self.state = original_state[:]
-            self.solution = original_solution[:]
-
-            for step in rotations:
-                ref_rotate(step)
-
-            solution_len = len(self.solution)
-            prev_solution_len = solution_len
-            ref_state = self.state
-
-            recolor_map = {
-                ref_state[4] : U,
-                ref_state[13] : L,
-                ref_state[22] : F,
-                ref_state[31] : R,
-                ref_state[40] : B,
-                ref_state[49] : D,
-            }
-
-            ref_recolor(recolor_map)
-            ref_index_init_all()
-
-            for (phase, desc, corners, edges, mtb, mtd, sz, mvm) in ref_phases[0:phases_to_solve]:
-
-                # unrolled this to avoid a function call
-                # ref_index_init()
-                self.idx_nc = 0
-                self.idx_ne = 0
-                self.idx = 0
-
-                for corner in corners:
-                    ref_index_corner(*corner)
-
-                for edge in edges:
-                    ref_index_edge(*edge)
-
-                if phase == last_phase:
-                    ref_index_last()
-
-                ref_solve_phase(phase, desc, mtb, mtd, sz, mvm)
-                solution_len = len(self.solution)
-                self.solution.append("COMMENT phase %s: %s (%d steps)" % (
-                    phase, desc, (solution_len - prev_solution_len)))
-                prev_solution_len = solution_len
-
-            # There will be one COMMENT per phase
-            solution_len = len(self.solution)
-            solution_len -= rotation_count + phases_to_solve
-
-            if solution_len < min_solution_len:
-                min_solution_len = solution_len
-                min_solution = self.solution[:]
-                min_rotations = rotations
-                min_rotation_count = rotation_count
-                print("(NEW MIN) rotations %s, solution len %d" % (" ".join(rotations), solution_len))
-            else:
-                print("rotations %s, solution len %d" % (" ".join(rotations), solution_len))
-
-        return ((min_rotation_count, min_rotations), min_solution)
-
-    # @timed_function
     def solve(self):
         """
         Solve the cube and return the solution
@@ -948,28 +1222,45 @@ class RubiksCube333(object):
         self.rotate_F_to_F()
 
         original_state = self.state[:]
-        original_solution = self.solution [:]
+        original_solution= self.solution[:]
 
-        # Find the rotation that has the lowest move count for the first 3 phases
-        (best_rotation, min_solution) = self._solve(original_state, original_solution, rotations_24, 3)
+        self.lt_phase1.solve()
+        solution_len = get_solution_len(self.solution)
+        self.solution.append("COMMENT phase 1: EO edges ({} steps)".format(solution_len))
+        prev_solution_len = solution_len
+        print(cube2strcolor(self.state))
+        print("phase1 complete, {} steps in".format(solution_len))
 
-        # Use that rotation to solve the entire cube
-        (_, min_solution) = self._solve(original_state, original_solution, (best_rotation, ), 9)
+        self.lt_phase2.solve()
+        solution_len = get_solution_len(self.solution)
+        self.solution.append("COMMENT phase 2: ({} steps)".format(solution_len - prev_solution_len))
+        prev_solution_len = solution_len
+        print(cube2strcolor(self.state))
+        print("phase2 complete, {} steps in".format(solution_len))
 
-        self.solution = compress_solution(min_solution)
+        self.lt_phase3.solve()
+        solution_len = get_solution_len(self.solution)
+        self.solution.append("COMMENT phase 3: ({} steps)".format(solution_len - prev_solution_len))
+        prev_solution_len = solution_len
+        print(cube2strcolor(self.state))
+        print("phase3 complete, {} steps in".format(solution_len))
 
-        print("FINAL CUBE:\n%s" % (cube2strcolor(self.state)))
+        self.lt_phase4.solve()
+        solution_len = get_solution_len(self.solution)
+        self.solution.append("COMMENT phase 4: ({} steps)".format(solution_len - prev_solution_len))
+        prev_solution_len = solution_len
+        print(cube2strcolor(self.state))
+        print("phase4 complete, {} steps in".format(solution_len))
+
+        #print("FINAL CUBE:\n%s" % (cube2strcolor(self.state)))
+        self.solution = compress_solution(self.solution)
         print(get_alg_cubing_net_url(self.solution))
 
         # Remove the comments from the solution
         self.solution = [x for x in self.solution if not x.startswith("COMMENT")]
 
+        # Put the cube back in the original state and apply the solution to
+        # make sure it solves the cube.
         self.verify_solution(original_state, self.solution)
 
         return self.solution
-
-    def print_profile_data(self):
-        print("                     function      calls  time(ms)")
-        print("==============================  ========  ========")
-        for function in profile_stats_calls.keys():
-            print("{:>30}  {:>8}  {:>8.2f}".format(function, profile_stats_calls[function], profile_stats_time[function] / 1000))
